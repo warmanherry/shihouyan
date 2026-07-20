@@ -1,11 +1,12 @@
 {
-  "name": "室後菸店務管理",
-  "short_name": "室後菸",
-  "description": "室後菸店務、銀行與分潤管理系統",
-  "start_url": "./index.html",
+  "name": "室後菸店務管理 V2 Beta",
+  "short_name": "室後菸 Beta",
+  "description": "室後菸多人同步測試版",
+  "id": "shishouyan-v2-beta-01",
+  "start_url": "./index.html?v=2.0.1",
   "scope": "./",
   "display": "standalone",
   "background_color": "#111111",
-  "theme_color": "#111111",
+  "theme_color": "#171717",
   "icons": []
 }
