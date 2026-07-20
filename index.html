@@ -1,0 +1,786 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#171717" />
+  <title>室後菸｜店務管理</title>
+  <link rel="manifest" href="manifest.json">
+  <style>
+    :root{
+      --bg:#111; --panel:#1d1d1d; --panel2:#262626; --gold:#c7a25b;
+      --text:#f5f1e8; --muted:#b9b2a7; --danger:#dd7f7f; --ok:#8fc79a;
+      --line:#353535;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",sans-serif}
+    header{position:sticky;top:0;z-index:10;background:#171717;border-bottom:1px solid var(--line);padding:16px}
+    h1{font-size:20px;margin:0 0 4px}
+    .sub{color:var(--muted);font-size:13px}
+    nav{display:flex;overflow:auto;gap:8px;padding:10px 16px;background:#171717;border-bottom:1px solid var(--line)}
+    nav button{white-space:nowrap;background:var(--panel2);color:var(--text);border:0;padding:10px 14px;border-radius:10px}
+    nav button.active{background:var(--gold);color:#171717;font-weight:700}
+    main{padding:16px;max-width:1100px;margin:auto}
+    section{display:none}
+    section.active{display:block}
+    .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px}
+    .card h3{font-size:13px;color:var(--muted);margin:0 0 10px}
+    .value{font-size:26px;font-weight:800}
+    .form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+    label{display:block;color:var(--muted);font-size:13px;margin-bottom:6px}
+    input,select,textarea{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:#101010;color:var(--text);font-size:16px}
+    textarea{min-height:80px}
+    .btn{background:var(--gold);color:#171717;border:0;border-radius:10px;padding:12px 16px;font-weight:800;cursor:pointer}
+    .btn.secondary{background:var(--panel2);color:var(--text)}
+    .btn.danger{background:#5a2525;color:#fff}
+    .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+    table{width:100%;border-collapse:collapse;margin-top:12px;font-size:14px}
+    th,td{padding:10px;border-bottom:1px solid var(--line);text-align:right}
+    th:first-child,td:first-child{text-align:left}
+    .scroll{overflow:auto}
+    .positive{color:var(--ok)} .negative{color:var(--danger)}
+    .notice{color:var(--muted);font-size:13px;line-height:1.6}
+    .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+    @media(max-width:760px){
+      .grid{grid-template-columns:repeat(2,1fr)}
+      .form-grid{grid-template-columns:1fr}
+      main{padding:12px}
+    }
+  </style>
+</head>
+<body>
+<header>
+  <h1>室後菸｜店務管理</h1>
+  <div class="sub">每日只輸入收入與支出；固定支出由使用者自行設定，報表自動完成，並可匯出 Excel／CSV。</div>
+</header>
+<nav id="nav">
+  <button data-tab="dashboard" class="active">首頁</button>
+  <button data-tab="daily">每日記帳</button>
+  <button data-tab="fixed">固定支出</button>
+  <button data-tab="distributions">分潤發放</button>
+  <button data-tab="bank">銀行對帳</button>
+  <button data-tab="monthly">月報</button>
+  <button data-tab="quarterly">季報</button>
+  <button data-tab="yearly">年報</button>
+  <button data-tab="settings">資料</button>
+</nav>
+
+<main>
+<section id="dashboard" class="active">
+  <div class="grid">
+    <div class="card"><h3>本月營收</h3><div class="value" id="dashIncome">0</div></div>
+    <div class="card"><h3>本月變動支出</h3><div class="value" id="dashVariable">0</div></div>
+    <div class="card"><h3>本月固定支出</h3><div class="value" id="dashFixed">0</div></div>
+    <div class="card"><h3>本月淨利</h3><div class="value" id="dashProfit">0</div></div>
+    <div class="card"><h3>銀行帳戶推算餘額</h3><div class="value" id="dashBankBalance">0</div></div>
+  </div>
+  <div class="card" style="margin-top:12px">
+    <h3>本月快速摘要</h3>
+    <div id="dashSummary" class="notice"></div>
+  </div>
+</section>
+
+<section id="daily">
+  <div class="card">
+    <h2>每日記帳</h2>
+    <div class="form-grid">
+      <div><label>日期</label><input id="dailyDate" type="date"></div>
+      <div><label>收入金額</label><input id="dailyIncome" type="number" min="0" step="1" placeholder="例如 12000"></div>
+      <div><label>支出金額</label><input id="dailyExpense" type="number" min="0" step="1" placeholder="例如 2500"></div>
+      <div><label>支出項目</label><input id="dailyCategory" placeholder="例如：進貨、員工餐、水電"></div>
+      <div style="grid-column:1/-1"><label>備註</label><textarea id="dailyNote" placeholder="自由輸入"></textarea></div>
+    </div>
+    <div class="actions"><button class="btn" id="addDaily">儲存每日記帳</button></div><div id="dailySaveStatus" class="notice" style="display:none;margin-top:10px"></div>
+  </div>
+  <div class="card" style="margin-top:12px">
+    <h3>最近記錄</h3>
+    <div class="scroll"><table id="dailyTable"></table></div>
+  </div>
+</section>
+
+<section id="fixed">
+  <div class="card">
+    <h2>固定支出</h2>
+    <div class="form-grid">
+      <div><label>支出名稱</label><input id="fixedName" placeholder="例如：房租"></div>
+      <div><label>金額</label><input id="fixedAmount" type="number" min="0" step="1"></div>
+      <div><label>週期</label>
+        <select id="fixedCycle">
+          <option value="monthly">每月</option>
+          <option value="quarterly">每季</option>
+          <option value="yearly">每年</option>
+        </select>
+      </div>
+      <div><label>開始日期</label><input id="fixedStart" type="date"></div>
+      <div><label>結束日期（可留空）</label><input id="fixedEnd" type="date"></div>
+      <div><label>每月入帳日</label><input id="fixedDay" type="number" min="1" max="31" value="1"></div>
+      <div style="grid-column:1/-1"><label>備註</label><textarea id="fixedNote"></textarea></div>
+    </div>
+    <div class="actions"><button class="btn" id="addFixed">新增固定支出</button></div>
+  </div>
+  <div class="card" style="margin-top:12px">
+    <h3>固定支出清單</h3>
+    <div class="scroll"><table id="fixedTable"></table></div>
+  </div>
+</section>
+
+
+<section id="distributions">
+  <div class="card">
+    <h2>新增分潤發放紀錄</h2>
+    <p class="notice">銀行餘額只扣除「實際已發放」的分潤，不會預先扣除尚未匯出的應分潤。</p>
+    <div class="form-grid">
+      <div><label>發放日期</label><input id="distributionDate" type="date"></div>
+      <div><label>發放金額</label><input id="distributionAmount" type="number" min="0" step="1"></div>
+      <div>
+        <label>分潤類型</label>
+        <select id="distributionType">
+          <option value="shareholder">股東分潤</option>
+          <option value="employee">員工分潤</option>
+          <option value="other">其他分潤</option>
+        </select>
+      </div>
+      <div><label>收款人／說明</label><input id="distributionRecipient" placeholder="例如：全體股東、王先生"></div>
+      <div style="grid-column:1/-1"><label>備註</label><textarea id="distributionNote"></textarea></div>
+    </div>
+    <button class="btn" id="addDistribution">新增分潤發放</button>
+  </div>
+  <div class="card" style="margin-top:12px">
+    <h2>分潤發放紀錄</h2>
+    <div class="scroll"><table id="distributionTable"></table></div>
+  </div>
+</section>
+
+<section id="bank">
+  <div class="card">
+    <h2>銀行帳戶期初設定</h2>
+    <p class="notice">請輸入開始使用系統當天的銀行實際餘額。之後系統會自動加上營收，扣除每日支出、固定支出及實際發放分潤。</p>
+    <div class="form-grid">
+      <div><label>期初日期</label><input id="bankOpeningDate" type="date"></div>
+      <div><label>期初銀行餘額</label><input id="bankOpeningBalance" type="number" step="1"></div>
+    </div>
+    <button class="btn" id="saveBankOpening">儲存期初設定</button>
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <h2>銀行調整紀錄</h2>
+    <p class="notice">用於股東投入、銀行手續費、利息、退款或其他不屬於店內營收支出的銀行變動。正數增加餘額，負數減少餘額。</p>
+    <div class="form-grid">
+      <div><label>日期</label><input id="adjustmentDate" type="date"></div>
+      <div><label>調整金額</label><input id="adjustmentAmount" type="number" step="1" placeholder="例如 50000 或 -30"></div>
+      <div><label>項目</label><input id="adjustmentCategory" placeholder="例如：股東投入、手續費"></div>
+      <div><label>備註</label><input id="adjustmentNote"></div>
+    </div>
+    <button class="btn" id="addAdjustment">新增銀行調整</button>
+    <div class="scroll" style="margin-top:12px"><table id="adjustmentTable"></table></div>
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <h2>目前銀行對帳</h2>
+    <div class="scroll"><table id="bankReconciliationTable"></table></div>
+  </div>
+</section>
+
+<section id="monthly">
+  <div class="card">
+    <div class="toolbar">
+      <h2 style="margin:0">月報表</h2>
+      <button class="btn secondary" onclick="exportReportCSV('monthly')">匯出 CSV</button>
+      <button class="btn" onclick="exportReportExcel('monthly')">匯出 Excel</button>
+    </div>
+    <div class="scroll"><table id="monthlyTable"></table></div>
+  </div>
+</section>
+
+<section id="quarterly">
+  <div class="card">
+    <div class="toolbar">
+      <h2 style="margin:0">季報表</h2>
+      <button class="btn secondary" onclick="exportReportCSV('quarterly')">匯出 CSV</button>
+      <button class="btn" onclick="exportReportExcel('quarterly')">匯出 Excel</button>
+    </div>
+    <div class="scroll"><table id="quarterlyTable"></table></div>
+  </div>
+</section>
+
+<section id="yearly">
+  <div class="card">
+    <div class="toolbar">
+      <h2 style="margin:0">年度報表</h2>
+      <button class="btn secondary" onclick="exportReportCSV('yearly')">匯出 CSV</button>
+      <button class="btn" onclick="exportReportExcel('yearly')">匯出 Excel</button>
+    </div>
+    <div class="scroll"><table id="yearlyTable"></table></div>
+  </div>
+</section>
+
+<section id="settings">
+
+  <div class="card">
+    <h2>店家資訊</h2>
+    <div class="form-grid">
+      <div>
+        <label>店名</label>
+        <input id="storeNameInput" type="text" placeholder="室後菸">
+      </div>
+      <div>
+        <label>開幕日</label>
+        <input id="openingDateInput" type="date">
+      </div>
+      <div>
+        <label>股東分潤比例（%）</label>
+        <input id="shareholderRateInput" type="number" min="0" max="100" step="0.1">
+      </div>
+      <div>
+        <label>員工分潤比例（%）</label>
+        <input id="employeeRateInput" type="number" min="0" max="100" step="0.1">
+      </div>
+      <div>
+        <label>營業時間</label>
+        <input id="businessHoursInput" type="text" placeholder="21:00–03:00">
+      </div>
+      <div style="display:flex;align-items:end">
+        <button class="btn" id="saveStoreSettings">儲存店家設定</button>
+      </div>
+    </div>
+    <p class="notice">月報、季報、年報會從「開幕日」開始統計；分潤欄位會依這裡的比例自動計算。</p>
+  </div>
+
+
+  <div class="card" style="margin-top:12px">
+    <h2>Google Sheets 雲端同步</h2>
+    <p id="cloudStatus" class="notice">正在讀取雲端設定…</p>
+    <div class="actions">
+      <button class="btn" id="reloadCloud">重新讀取雲端資料</button>
+      <button class="btn secondary" id="uploadCloud">把目前資料上傳到雲端</button>
+    </div>
+    <p class="notice">Apps Script 網址與存取密碼請填在 <code>config.js</code>。網頁會保留本機快取，但 Google Sheets 才是多人共用的主要資料。</p>
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <h2>資料備份</h2>
+    <p class="notice">資料會同步到 Google Sheets，瀏覽器同時保留快取。仍可匯出 JSON 作為額外備份。</p>
+    <div class="actions">
+      <button class="btn" id="exportData">匯出備份</button>
+      <label class="btn secondary" style="display:inline-block;margin:0">匯入備份<input id="importData" type="file" accept=".json" style="display:none"></label>
+      <button class="btn danger" id="clearData">清除全部資料</button>
+    </div>
+  </div>
+</section>
+</main>
+
+<script src="config.js"></script>
+<script>
+const STORE_KEY='shihouyan_cloud_cache_v1';
+const OLD_STORE_KEY='shihouyan_store_v4_1';
+const DEFAULT_STATE={daily:[],fixed:[],bankOpeningBalance:0,bankOpeningDate:today(),distributions:[],adjustments:[],storeSettings:{storeName:'室後菸',openingDate:'2026-04-01',shareholderRate:90,employeeRate:10,businessHours:'21:00–03:00'}};
+const CLOUD_CONFIG=window.SHISHOUYAN_CONFIG||{};
+let state=loadState();
+let cloudSaveTimer=null;
+let cloudSaving=false;
+
+function normalizeState(data){
+  const s=(data&&typeof data==='object')?data:{};
+  if(!Array.isArray(s.daily)) s.daily=[];
+  if(!Array.isArray(s.fixed)) s.fixed=[];
+  if(!Array.isArray(s.distributions)) s.distributions=[];
+  if(!Array.isArray(s.adjustments)) s.adjustments=[];
+  if(typeof s.bankOpeningBalance!=='number') s.bankOpeningBalance=Number(s.bankOpeningBalance||0);
+  if(!s.bankOpeningDate) s.bankOpeningDate=today();
+  if(!s.storeSettings) s.storeSettings={};
+  if(!s.storeSettings.storeName) s.storeSettings.storeName='室後菸';
+  if(!s.storeSettings.openingDate) s.storeSettings.openingDate='2026-04-01';
+  if(typeof s.storeSettings.shareholderRate!=='number') s.storeSettings.shareholderRate=90;
+  if(typeof s.storeSettings.employeeRate!=='number') s.storeSettings.employeeRate=10;
+  if(!s.storeSettings.businessHours) s.storeSettings.businessHours='21:00–03:00';
+  return s;
+}
+
+function loadState(){
+  try{
+    return normalizeState(JSON.parse(localStorage.getItem(STORE_KEY)||localStorage.getItem(OLD_STORE_KEY))||structuredClone(DEFAULT_STATE));
+  }catch{
+    return normalizeState(JSON.parse(JSON.stringify(DEFAULT_STATE)));
+  }
+}
+
+function setCloudStatus(message,isError=false){
+  const node=document.getElementById('cloudStatus');
+  if(!node) return;
+  node.textContent=message;
+  node.style.color=isError?'#ff9c9c':'';
+}
+
+function cloudReady(){
+  return Boolean(CLOUD_CONFIG.scriptUrl && CLOUD_CONFIG.accessToken &&
+    !CLOUD_CONFIG.scriptUrl.includes('請貼上') && !CLOUD_CONFIG.accessToken.includes('請設定'));
+}
+
+function save(){
+  localStorage.setItem(STORE_KEY,JSON.stringify(state));
+  renderAll();
+  if(cloudReady()){
+    clearTimeout(cloudSaveTimer);
+    setCloudStatus('本機已儲存，準備同步到 Google Sheets…');
+    cloudSaveTimer=setTimeout(()=>saveCloudState(),500);
+  }else{
+    setCloudStatus('目前只儲存在本機。請先完成 config.js 的 Apps Script 設定。',true);
+  }
+}
+
+function submitCloudForm(payload){
+  return new Promise((resolve,reject)=>{
+    const iframe=document.createElement('iframe');
+    iframe.name='cloudSaveFrame_'+Date.now();
+    iframe.style.display='none';
+    const form=document.createElement('form');
+    form.method='POST';
+    form.action=CLOUD_CONFIG.scriptUrl;
+    form.target=iframe.name;
+    form.style.display='none';
+    Object.entries(payload).forEach(([key,value])=>{
+      const input=document.createElement('input');
+      input.type='hidden'; input.name=key; input.value=value;
+      form.appendChild(input);
+    });
+    let finished=false;
+    const cleanup=()=>{
+      if(finished) return;
+      finished=true;
+      setTimeout(()=>{form.remove();iframe.remove()},100);
+      resolve();
+    };
+    iframe.onload=cleanup;
+    document.body.appendChild(iframe);
+    document.body.appendChild(form);
+    form.submit();
+    setTimeout(cleanup,5000);
+  });
+}
+
+async function saveCloudState(){
+  if(!cloudReady()||cloudSaving) return;
+  cloudSaving=true;
+  setCloudStatus('正在同步到 Google Sheets…');
+  try{
+    await submitCloudForm({
+      action:'save',
+      token:CLOUD_CONFIG.accessToken,
+      payload:JSON.stringify(state)
+    });
+    setCloudStatus('已送出雲端同步。正在確認最新資料…');
+    setTimeout(()=>loadCloudState(false),800);
+  }catch(error){
+    console.error(error);
+    setCloudStatus('雲端同步失敗，本機資料仍保留。',true);
+  }finally{
+    cloudSaving=false;
+  }
+}
+
+function loadCloudState(showAlert=true){
+  if(!cloudReady()){
+    setCloudStatus('尚未設定 Apps Script 網址或存取密碼。',true);
+    if(showAlert) alert('請先編輯 config.js');
+    return;
+  }
+  setCloudStatus('正在從 Google Sheets 讀取資料…');
+  const callback='shishouyanCloudCallback_'+Date.now();
+  const script=document.createElement('script');
+  const timeout=setTimeout(()=>{
+    delete window[callback]; script.remove();
+    setCloudStatus('讀取逾時，正在使用本機快取。',true);
+  },12000);
+  window[callback]=(response)=>{
+    clearTimeout(timeout);
+    delete window[callback];
+    script.remove();
+    if(response&&response.ok){
+      state=normalizeState(response.state||{});
+      localStorage.setItem(STORE_KEY,JSON.stringify(state));
+      renderAll();
+      setCloudStatus(`已同步 Google Sheets（${response.updatedAt||'剛剛'}）`);
+    }else{
+      setCloudStatus(`讀取失敗：${response&&response.error?response.error:'未知錯誤'}`,true);
+    }
+  };
+  const url=new URL(CLOUD_CONFIG.scriptUrl);
+  url.searchParams.set('action','load');
+  url.searchParams.set('token',CLOUD_CONFIG.accessToken);
+  url.searchParams.set('callback',callback);
+  url.searchParams.set('_',Date.now());
+  script.src=url.toString();
+  script.onerror=()=>{
+    clearTimeout(timeout);
+    delete window[callback]; script.remove();
+    setCloudStatus('無法連線 Google Apps Script，正在使用本機快取。',true);
+  };
+  document.body.appendChild(script);
+}
+const el=id=>document.getElementById(id);
+function money(v){return new Intl.NumberFormat('zh-TW',{style:'currency',currency:'TWD',maximumFractionDigits:0}).format(v||0)}
+function today(){return new Date().toISOString().slice(0,10)}
+function ym(date){return date.slice(0,7)}
+function y(date){return date.slice(0,4)}
+function quarterKey(date){const d=new Date(date+'T00:00:00'); return `${d.getFullYear()}-Q${Math.floor(d.getMonth()/3)+1}`}
+function monthList(){
+  const openingDate=(state.storeSettings&&state.storeSettings.openingDate)||'2026-04-01';
+  const start=new Date(openingDate+'T00:00:00');
+  const now=new Date();
+  const result=[];
+  let d=new Date(start.getFullYear(),start.getMonth(),1);
+  const end=new Date(now.getFullYear(),now.getMonth(),1);
+  while(d<=end){
+    result.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
+    d.setMonth(d.getMonth()+1);
+  }
+  return result;
+}
+function fixedApplies(f, month){
+  const mStart=new Date(month+'-01T00:00:00');
+  const mEnd=new Date(mStart.getFullYear(),mStart.getMonth()+1,0);
+  const s=new Date(f.start+'T00:00:00');
+  const e=f.end?new Date(f.end+'T23:59:59'):null;
+  if(mEnd<s || (e && mStart>e)) return false;
+  const months=(mStart.getFullYear()-s.getFullYear())*12+(mStart.getMonth()-s.getMonth());
+  if(f.cycle==='monthly') return months>=0;
+  if(f.cycle==='quarterly') return months>=0 && months%3===0;
+  if(f.cycle==='yearly') return months>=0 && months%12===0;
+  return false;
+}
+function isOnOrAfterOpening(date){
+  const openingDate=(state.storeSettings&&state.storeSettings.openingDate)||'2026-04-01';
+  return date>=openingDate;
+}
+
+function monthReport(month){
+  const daily=state.daily.filter(x=>ym(x.date)===month);
+  const income=daily.reduce((a,x)=>a+(+x.income||0),0);
+  const variable=daily.reduce((a,x)=>a+(+x.expense||0),0);
+  const fixed=state.fixed.filter(f=>fixedApplies(f,month)).reduce((a,f)=>a+(+f.amount||0),0);
+  return {month,income,variable,fixed,total:variable+fixed,profit:income-variable-fixed};
+}
+
+function monthsBetween(startDate,endDate){
+  const result=[];
+  if(!startDate || !endDate) return result;
+  let d=new Date(startDate+'T00:00:00');
+  const end=new Date(endDate+'T00:00:00');
+  d=new Date(d.getFullYear(),d.getMonth(),1);
+  const endMonth=new Date(end.getFullYear(),end.getMonth(),1);
+  while(d<=endMonth){
+    result.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
+    d.setMonth(d.getMonth()+1);
+  }
+  return result;
+}
+
+function bankReconciliation(asOf=today()){
+  const openingDate=state.bankOpeningDate||today();
+  const opening=+state.bankOpeningBalance||0;
+  const daily=state.daily.filter(x=>x.date>=openingDate && x.date<=asOf);
+  const income=daily.reduce((a,x)=>a+(+x.income||0),0);
+  const variable=daily.reduce((a,x)=>a+(+x.expense||0),0);
+  const fixed=monthsBetween(openingDate,asOf)
+    .reduce((sum,m)=>sum+state.fixed.filter(f=>fixedApplies(f,m)).reduce((a,f)=>a+(+f.amount||0),0),0);
+  const distributions=state.distributions
+    .filter(x=>x.date>=openingDate && x.date<=asOf)
+    .reduce((a,x)=>a+(+x.amount||0),0);
+  const adjustments=state.adjustments
+    .filter(x=>x.date>=openingDate && x.date<=asOf)
+    .reduce((a,x)=>a+(+x.amount||0),0);
+  const balance=opening+income-variable-fixed-distributions+adjustments;
+  return {openingDate,opening,income,variable,fixed,distributions,adjustments,balance};
+}
+
+function distributionTypeText(t){
+  return t==='shareholder'?'股東分潤':t==='employee'?'員工分潤':'其他分潤';
+}
+
+function renderDistributions(){
+  const rows=[...state.distributions].sort((a,b)=>b.date.localeCompare(a.date));
+  el('distributionTable').innerHTML=`<tr><th>日期</th><th>類型</th><th>收款人／說明</th><th>金額</th><th>備註</th><th></th></tr>`+
+    rows.map(x=>`<tr><td>${x.date}</td><td>${distributionTypeText(x.type)}</td><td>${esc(x.recipient)}</td><td>${money(x.amount)}</td><td>${esc(x.note)}</td><td><button class="btn danger" onclick="delDistribution('${x.id}')">刪除</button></td></tr>`).join('');
+}
+
+function renderBank(){
+  el('bankOpeningDate').value=state.bankOpeningDate||today();
+  el('bankOpeningBalance').value=state.bankOpeningBalance||0;
+  const rows=[...state.adjustments].sort((a,b)=>b.date.localeCompare(a.date));
+  el('adjustmentTable').innerHTML=`<tr><th>日期</th><th>項目</th><th>金額</th><th>備註</th><th></th></tr>`+
+    rows.map(x=>`<tr><td>${x.date}</td><td>${esc(x.category)}</td><td class="${(+x.amount||0)>=0?'positive':'negative'}">${money(x.amount)}</td><td>${esc(x.note)}</td><td><button class="btn danger" onclick="delAdjustment('${x.id}')">刪除</button></td></tr>`).join('');
+  const r=bankReconciliation();
+  el('bankReconciliationTable').innerHTML=`
+    <tr><th>項目</th><th>金額</th></tr>
+    <tr><td>期初餘額（${r.openingDate}）</td><td>${money(r.opening)}</td></tr>
+    <tr><td>＋累計營收</td><td>${money(r.income)}</td></tr>
+    <tr><td>－每日支出</td><td>${money(r.variable)}</td></tr>
+    <tr><td>－固定支出</td><td>${money(r.fixed)}</td></tr>
+    <tr><td>－已發放分潤</td><td>${money(r.distributions)}</td></tr>
+    <tr><td>＋／－銀行調整</td><td>${money(r.adjustments)}</td></tr>
+    <tr><th>推算銀行餘額</th><th>${money(r.balance)}</th></tr>`;
+}
+
+function renderDashboard(){
+  const m=today().slice(0,7), r=monthReport(m);
+  el('dashIncome').textContent=money(r.income); el('dashVariable').textContent=money(r.variable);
+  el('dashFixed').textContent=money(r.fixed); el('dashProfit').textContent=money(r.profit);
+  const br=bankReconciliation();
+  el('dashBankBalance').textContent=money(br.balance);
+  const bankSummaryEl=el('bankSummary');
+  if(bankSummaryEl){
+    bankSummaryEl.innerHTML=`期初 ${money(br.opening)} ＋ 營收 ${money(br.income)} － 每日支出 ${money(br.variable)} － 固定支出 ${money(br.fixed)} － 已發放分潤 ${money(br.distributions)} ＋／－ 調整 ${money(br.adjustments)} ＝ <b>${money(br.balance)}</b>`;
+  }
+  el('dashProfit').className='value '+(r.profit>=0?'positive':'negative');
+  el('dashSummary').innerHTML=`<b>${m} 本月摘要</b><br>營收 ${money(r.income)}｜變動支出 ${money(r.variable)}｜固定支出 ${money(r.fixed)}｜總支出 ${money(r.total)}｜淨利 ${money(r.profit)}<br>本月套用固定支出 ${state.fixed.filter(f=>fixedApplies(f,m)).length} 筆。`;
+}
+function renderDaily(){
+  const rows=[...state.daily].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,100);
+  el('dailyTable').innerHTML=`<tr><th>日期</th><th>收入</th><th>支出</th><th>項目</th><th>備註</th><th></th></tr>`+
+    (rows.length?rows.map(x=>`<tr><td>${x.date}</td><td>${money(x.income)}</td><td>${money(x.expense)}</td><td>${esc(x.category)}</td><td>${esc(x.note)}</td><td><button class="btn danger" onclick="delDaily('${x.id}')">刪除</button></td></tr>`).join(''):`<tr><td colspan="6" class="notice">目前尚無每日記帳紀錄</td></tr>`);
+}
+function renderFixed(){
+  el('fixedTable').innerHTML=`<tr><th>項目</th><th>金額</th><th>週期</th><th>開始</th><th>結束</th><th></th></tr>`+
+    state.fixed.map(x=>`<tr><td>${esc(x.name)}</td><td>${money(x.amount)}</td><td>${cycleText(x.cycle)}</td><td>${x.start}</td><td>${x.end||'—'}</td><td><button class="btn danger" onclick="delFixed('${x.id}')">刪除</button></td></tr>`).join('');
+}
+function cycleText(c){return c==='monthly'?'每月':c==='quarterly'?'每季':'每年'}
+let reportCache={monthly:[],quarterly:[],yearly:[]};
+
+function renderReports(){
+  const ms=monthList(), mr=ms.map(monthReport);
+  reportCache.monthly = mr.map(r=>({
+    "月份":r.month,
+    "營收":r.income,
+    "變動支出":r.variable,
+    "固定支出":r.fixed,
+    "總支出":r.total,
+    "淨利":r.profit
+  }));
+
+  el('monthlyTable').innerHTML=`<tr><th>月份</th><th>營收</th><th>變動支出</th><th>固定支出</th><th>總支出</th><th>淨利</th></tr>`+
+    mr.map(r=>`<tr><td>${r.month}</td><td>${money(r.income)}</td><td>${money(r.variable)}</td><td>${money(r.fixed)}</td><td>${money(r.total)}</td><td class="${r.profit>=0?'positive':'negative'}">${money(r.profit)}</td></tr>`).join('');
+
+  const qmap={};
+  mr.forEach(r=>{
+    const [yy,mm]=r.month.split('-');
+    const q=`${yy}-Q${Math.floor((+mm-1)/3)+1}`;
+    qmap[q]??={income:0,variable:0,fixed:0,total:0,profit:0};
+    Object.keys(qmap[q]).forEach(k=>qmap[q][k]+=r[k]);
+  });
+
+  reportCache.quarterly = Object.entries(qmap).map(([k,r])=>({
+    "季度":k,
+    "營收":r.income,
+    "變動支出":r.variable,
+    "固定支出":r.fixed,
+    "總支出":r.total,
+    "淨利":r.profit,
+    "股東總分潤":Math.max(r.profit,0)*(((state.storeSettings&&state.storeSettings.shareholderRate)||90)/100),
+    "已發放股東分潤":state.distributions.filter(x=>x.type==="shareholder" && `${x.date.slice(0,4)}-Q${Math.floor((+x.date.slice(5,7)-1)/3)+1}`===k).reduce((a,x)=>a+(+x.amount||0),0)
+  }));
+
+  el('quarterlyTable').innerHTML=`<tr><th>季度</th><th>營收</th><th>變動支出</th><th>固定支出</th><th>總支出</th><th>淨利</th><th>股東總分潤（${((state.storeSettings&&state.storeSettings.shareholderRate)||90)}%）</th><th>已發放股東分潤</th></tr>`+
+    Object.entries(qmap).map(([k,r])=>{
+      const share=Math.max(r.profit,0)*(((state.storeSettings&&state.storeSettings.shareholderRate)||90)/100);
+      const paid=state.distributions.filter(x=>x.type==="shareholder" && `${x.date.slice(0,4)}-Q${Math.floor((+x.date.slice(5,7)-1)/3)+1}`===k).reduce((a,x)=>a+(+x.amount||0),0); return `<tr><td>${k}</td><td>${money(r.income)}</td><td>${money(r.variable)}</td><td>${money(r.fixed)}</td><td>${money(r.total)}</td><td class="${r.profit>=0?'positive':'negative'}">${money(r.profit)}</td><td>${money(share)}</td><td>${money(paid)}</td></tr>`;
+    }).join('');
+
+  const ymap={};
+  mr.forEach(r=>{
+    const yy=r.month.slice(0,4);
+    ymap[yy]??={income:0,variable:0,fixed:0,total:0,profit:0};
+    Object.keys(ymap[yy]).forEach(k=>ymap[yy][k]+=r[k]);
+  });
+
+  reportCache.yearly = Object.entries(ymap).map(([k,r])=>({
+    "年度":k,
+    "營收":r.income,
+    "變動支出":r.variable,
+    "固定支出":r.fixed,
+    "總支出":r.total,
+    "淨利":r.profit,
+    "股東總分潤":Math.max(r.profit,0)*(((state.storeSettings&&state.storeSettings.shareholderRate)||90)/100),
+    "已發放股東分潤":state.distributions.filter(x=>x.type==="shareholder" && x.date.slice(0,4)===k).reduce((a,x)=>a+(+x.amount||0),0)
+  }));
+
+  el('yearlyTable').innerHTML=`<tr><th>年度</th><th>營收</th><th>變動支出</th><th>固定支出</th><th>總支出</th><th>淨利</th><th>股東總分潤（${((state.storeSettings&&state.storeSettings.shareholderRate)||90)}%）</th><th>已發放股東分潤</th></tr>`+
+    Object.entries(ymap).map(([k,r])=>{
+      const share=Math.max(r.profit,0)*(((state.storeSettings&&state.storeSettings.shareholderRate)||90)/100);
+      return `<tr><td>${k}</td><td>${money(r.income)}</td><td>${money(r.variable)}</td><td>${money(r.fixed)}</td><td>${money(r.total)}</td><td class="${r.profit>=0?'positive':'negative'}">${money(r.profit)}</td><td>${money(share)}</td></tr>`;
+    }).join('');
+}
+
+function downloadBlob(content, mime, filename){
+  const blob=new Blob([content],{type:mime});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),500);
+}
+
+function rowsToCSV(rows){
+  if(!rows.length) return '';
+  const headers=Object.keys(rows[0]);
+  const escCSV=v=>{
+    const s=String(v??'');
+    return /[",\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;
+  };
+  return '\uFEFF'+[headers.join(','),...rows.map(r=>headers.map(h=>escCSV(r[h])).join(','))].join('\n');
+}
+
+window.exportReportCSV=(type)=>{
+  const rows=reportCache[type]||[];
+  if(!rows.length){alert('目前沒有可匯出的資料');return}
+  const names={monthly:'月報表',quarterly:'季報表',yearly:'年度報表'};
+  downloadBlob(rowsToCSV(rows),'text/csv;charset=utf-8',`室後菸_${names[type]}_${today()}.csv`);
+};
+
+function xmlEscape(s){
+  return String(s??'').replace(/[<>&'"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;',"'":'&apos;','"':'&quot;'}[c]));
+}
+
+window.exportReportExcel=(type)=>{
+  const rows=reportCache[type]||[];
+  if(!rows.length){alert('目前沒有可匯出的資料');return}
+  const names={monthly:'月報表',quarterly:'季報表',yearly:'年度報表'};
+  const headers=Object.keys(rows[0]);
+  const cell=v=>{
+    const isNum=typeof v==='number' && Number.isFinite(v);
+    return `<Cell><Data ss:Type="${isNum?'Number':'String'}">${xmlEscape(v)}</Data></Cell>`;
+  };
+  const xml=`<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+ <Worksheet ss:Name="${names[type]}">
+  <Table>
+   <Row>${headers.map(h=>cell(h)).join('')}</Row>
+   ${rows.map(r=>`<Row>${headers.map(h=>cell(r[h])).join('')}</Row>`).join('')}
+  </Table>
+ </Worksheet>
+</Workbook>`;
+  downloadBlob('\uFEFF'+xml,'application/vnd.ms-excel',`室後菸_${names[type]}_${today()}.xls`);
+};
+
+function esc(s=''){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
+function renderStoreSettings(){
+  const s=state.storeSettings||{};
+  if(window.storeNameInput) storeNameInput.value=s.storeName||'室後菸';
+  if(window.openingDateInput) openingDateInput.value=s.openingDate||'2026-04-01';
+  if(window.shareholderRateInput) shareholderRateInput.value=s.shareholderRate??90;
+  if(window.employeeRateInput) employeeRateInput.value=s.employeeRate??10;
+  if(window.businessHoursInput) businessHoursInput.value=s.businessHours||'21:00–03:00';
+  document.title=`${s.storeName||'室後菸'}店務管理`;
+  const titleEl=document.querySelector('h1');
+  if(titleEl) titleEl.textContent=`${s.storeName||'室後菸'}店務管理`;
+}
+
+function renderAll(){const jobs=[renderDashboard,renderDaily,renderFixed,renderDistributions,renderBank,renderReports]; jobs.forEach(fn=>{try{fn()}catch(e){console.error(fn.name,e)}})}
+window.delDaily=id=>{state.daily=state.daily.filter(x=>x.id!==id);save()}
+window.delFixed=id=>{state.fixed=state.fixed.filter(x=>x.id!==id);save()}
+window.delDistribution=id=>{state.distributions=state.distributions.filter(x=>x.id!==id);save()}
+window.delAdjustment=id=>{state.adjustments=state.adjustments.filter(x=>x.id!==id);save()}
+
+document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#nav button').forEach(x=>x.classList.toggle('active',x===b));
+  document.querySelectorAll('main section').forEach(s=>s.classList.toggle('active',s.id===b.dataset.tab));
+});
+el('dailyDate').value=today(); el('fixedStart').value=today(); el('distributionDate').value=today(); el('adjustmentDate').value=today(); el('bankOpeningDate').value=state.bankOpeningDate||today();
+
+el('addDaily').onclick=()=>{
+  const date=el('dailyDate').value, income=+el('dailyIncome').value||0, expense=+el('dailyExpense').value||0;
+  if(!date){alert('請選擇日期');return}
+  if(income===0 && expense===0){alert('收入或支出至少輸入一項');return}
+  state.daily.push({id:(crypto.randomUUID?crypto.randomUUID():String(Date.now())),date,income,expense,category:el('dailyCategory').value.trim(),note:el('dailyNote').value.trim()});
+  el('dailyIncome').value='';el('dailyExpense').value='';el('dailyCategory').value='';el('dailyNote').value='';
+  save();
+  const s=el('dailySaveStatus'); s.style.display='block'; s.textContent=`已儲存 ${date}：收入 ${money(income)}，支出 ${money(expense)}。下方明細已更新。`;
+}
+addFixed.onclick=()=>{
+  if(!fixedName.value.trim() || !(+fixedAmount.value>0) || !fixedStart.value){alert('請填寫名稱、金額與開始日期');return}
+  state.fixed.push({id:crypto.randomUUID(),name:fixedName.value.trim(),amount:+fixedAmount.value,cycle:fixedCycle.value,start:fixedStart.value,end:fixedEnd.value,day:+fixedDay.value||1,note:fixedNote.value.trim()});
+  fixedName.value='';fixedAmount.value='';fixedEnd.value='';fixedNote.value='';save();
+}
+
+addDistribution.onclick=()=>{
+  const date=distributionDate.value, amount=+distributionAmount.value||0;
+  if(!date || amount<=0){alert('請填寫日期與正確的分潤金額');return}
+  state.distributions.push({
+    id:crypto.randomUUID(),date,amount,type:distributionType.value,
+    recipient:distributionRecipient.value.trim(),note:distributionNote.value.trim()
+  });
+  distributionAmount.value='';distributionRecipient.value='';distributionNote.value='';save();
+}
+
+saveBankOpening.onclick=()=>{
+  const amount=Number(bankOpeningBalance.value);
+  if(!bankOpeningDate.value || !Number.isFinite(amount)){alert('請填寫期初日期與餘額');return}
+  state.bankOpeningDate=bankOpeningDate.value;
+  state.bankOpeningBalance=amount;
+  save();
+  alert('期初銀行設定已儲存');
+}
+
+addAdjustment.onclick=()=>{
+  const date=adjustmentDate.value, amount=Number(adjustmentAmount.value);
+  if(!date || !Number.isFinite(amount) || amount===0){alert('請填寫日期與非零調整金額');return}
+  state.adjustments.push({
+    id:crypto.randomUUID(),date,amount,
+    category:adjustmentCategory.value.trim(),note:adjustmentNote.value.trim()
+  });
+  adjustmentAmount.value='';adjustmentCategory.value='';adjustmentNote.value='';save();
+}
+
+
+saveStoreSettings.onclick=()=>{
+  const shareholderRate=Number(shareholderRateInput.value);
+  const employeeRate=Number(employeeRateInput.value);
+  if(!storeNameInput.value.trim() || !openingDateInput.value){
+    alert('請填寫店名與開幕日');
+    return;
+  }
+  if(!Number.isFinite(shareholderRate) || shareholderRate<0 || shareholderRate>100 ||
+     !Number.isFinite(employeeRate) || employeeRate<0 || employeeRate>100){
+    alert('分潤比例請輸入 0 到 100 之間的數字');
+    return;
+  }
+  state.storeSettings={
+    storeName:storeNameInput.value.trim(),
+    openingDate:openingDateInput.value,
+    shareholderRate,
+    employeeRate,
+    businessHours:businessHoursInput.value.trim()
+  };
+  save();
+  alert('店家設定已儲存');
+}
+
+
+el('reloadCloud').onclick=()=>loadCloudState(true);
+el('uploadCloud').onclick=()=>{
+  if(!cloudReady()){alert('請先設定 config.js');return}
+  if(confirm('確定要用目前畫面中的資料覆蓋 Google Sheets 嗎？')) saveCloudState();
+};
+
+exportData.onclick=()=>{
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='室後菸_店務資料備份.json';a.click();URL.revokeObjectURL(a.href);
+}
+importData.onchange=async e=>{
+  const f=e.target.files[0]; if(!f)return;
+  try{state=JSON.parse(await f.text());save();alert('匯入完成')}
+  catch{alert('檔案格式錯誤')}
+}
+clearData.onclick=()=>{if(confirm('確定清除全部資料？此動作無法復原。')){state={daily:[],fixed:[],bankOpeningBalance:0,bankOpeningDate:today(),distributions:[],adjustments:[],storeSettings:{storeName:'室後菸',openingDate:'2026-04-01',shareholderRate:90,employeeRate:10,businessHours:'21:00–03:00'}};save()}}
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+renderAll();
+setTimeout(()=>loadCloudState(false),200);
+</script>
+</body>
+</html>
