@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#171717" />
-  <title>室後菸｜店務管理 V2 Beta</title>
+  <title>室後菸｜店務管理 V1.1</title>
   <link rel="manifest" href="manifest.json">
   <style>
     :root{
@@ -42,29 +42,31 @@
     .positive{color:var(--ok)} .negative{color:var(--danger)}
     .notice{color:var(--muted);font-size:13px;line-height:1.6}
     .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
-    .sync-badge{display:inline-block;margin-top:8px;padding:6px 10px;border-radius:999px;font-size:12px;background:#303030;color:var(--muted)}
-    .sync-badge.ok{background:#17351f;color:#a8ddb2}.sync-badge.syncing{background:#463817;color:#f1d184}.sync-badge.error{background:#4b2020;color:#ffaaaa}
-    .loading-mask{position:fixed;inset:0;z-index:99;background:rgba(17,17,17,.96);display:flex;align-items:center;justify-content:center;padding:24px}
-    .loading-box{max-width:420px;text-align:center;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:24px}.loading-box h2{margin-top:0}
-    .diag-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.diag-item{background:#101010;border-radius:10px;padding:12px}.diag-item b{display:block;margin-top:4px}
+    .info-box{background:#2a2418;border:1px solid #6d5830;border-radius:12px;padding:12px 14px;color:#ead7ae;font-size:14px;line-height:1.6;margin:12px 0}
+    .warning-box{background:#321f1f;border:1px solid #704040;border-radius:12px;padding:12px 14px;color:#ffc4c4;font-size:14px;line-height:1.6;margin-top:12px}
+    .quick-templates{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+    .fixed-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}
+    .fixed-item{background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:14px}
+    .fixed-item-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+    .fixed-item-title{font-weight:800;font-size:17px}
+    .fixed-item-meta{color:var(--muted);font-size:13px;line-height:1.7;margin-top:8px}
     @media(max-width:760px){
       .grid{grid-template-columns:repeat(2,1fr)}
       .form-grid{grid-template-columns:1fr}
       main{padding:12px}
+      .fixed-cards{grid-template-columns:1fr}
     }
   </style>
 </head>
 <body>
-<div id="startupLoading" class="loading-mask"><div class="loading-box"><h2>室後菸 V2 Beta</h2><p id="startupMessage">正在取得 Google Sheets 最新資料…</p><p class="notice">若雲端暫時沒有回應，系統會保留並顯示本機資料，不會自動用空白資料覆蓋雲端。</p></div></div>
 <header>
-  <h1>室後菸｜店務管理 V2 Beta</h1>
-  <div class="sub">V2 Beta 0.1｜多人合併同步測試版</div>
-  <div id="syncBadge" class="sync-badge syncing">● 正在取得雲端資料…</div>
+  <h1>室後菸｜店務管理</h1>
+  <div class="sub">V1.1 修正版｜固定支出規則、防重複、銀行期初日期警示與營運資金設定。</div>
 </header>
 <nav id="nav">
   <button data-tab="dashboard" class="active">首頁</button>
   <button data-tab="daily">每日記帳</button>
-  <button data-tab="fixed">固定支出</button>
+  <button data-tab="fixed">固定支出設定</button>
   <button data-tab="distributions">分潤發放</button>
   <button data-tab="bank">銀行對帳</button>
   <button data-tab="monthly">月報</button>
@@ -95,7 +97,7 @@
       <div><label>日期</label><input id="dailyDate" type="date"></div>
       <div><label>收入金額</label><input id="dailyIncome" type="number" min="0" step="1" placeholder="例如 12000"></div>
       <div><label>支出金額</label><input id="dailyExpense" type="number" min="0" step="1" placeholder="例如 2500"></div>
-      <div><label>支出項目</label><input id="dailyCategory" placeholder="例如：進貨、員工餐、水電"></div>
+      <div><label>支出項目</label><input id="dailyCategory" placeholder="例如：進貨、員工製菸報酬、水電"></div>
       <div style="grid-column:1/-1"><label>備註</label><textarea id="dailyNote" placeholder="自由輸入"></textarea></div>
     </div>
     <div class="actions"><button class="btn" id="addDaily">儲存每日記帳</button></div><div id="dailySaveStatus" class="notice" style="display:none;margin-top:10px"></div>
@@ -108,7 +110,13 @@
 
 <section id="fixed">
   <div class="card">
-    <h2>固定支出</h2>
+    <h2>固定支出設定</h2>
+    <div class="info-box"><b>固定支出只需要建立一次。</b><br>系統會依照設定週期自動套用，不需要每個月重新新增。</div>
+    <div class="quick-templates">
+      <button class="btn secondary fixed-template" data-name="房租">🏠 房租</button>
+      <button class="btn secondary fixed-template" data-name="網路">🌐 網路</button>
+      <button class="btn secondary fixed-template" data-name="POS 系統">🖥️ POS 系統</button>
+    </div>
     <div class="form-grid">
       <div><label>支出名稱</label><input id="fixedName" placeholder="例如：房租"></div>
       <div><label>金額</label><input id="fixedAmount" type="number" min="0" step="1"></div>
@@ -124,19 +132,18 @@
       <div><label>每月入帳日</label><input id="fixedDay" type="number" min="1" max="31" value="1"></div>
       <div style="grid-column:1/-1"><label>備註</label><textarea id="fixedNote"></textarea></div>
     </div>
-    <div class="actions"><button class="btn" id="addFixed">新增固定支出</button></div>
+    <div class="actions"><button class="btn" id="addFixed">建立固定支出規則</button></div>
   </div>
   <div class="card" style="margin-top:12px">
-    <h3>固定支出清單</h3>
-    <div class="scroll"><table id="fixedTable"></table></div>
+    <h3>已建立的固定支出規則</h3>
+    <div id="fixedCards" class="fixed-cards"></div>
   </div>
 </section>
-
 
 <section id="distributions">
   <div class="card">
     <h2>新增分潤發放紀錄</h2>
-    <p class="notice">銀行餘額只扣除「實際已發放」的分潤，不會預先扣除尚未匯出的應分潤。</p>
+    <p class="notice">銀行餘額只扣除「實際已發放」的股東或其他分潤。員工製菸報酬請在「每日記帳」列為支出。</p>
     <div class="form-grid">
       <div><label>發放日期</label><input id="distributionDate" type="date"></div>
       <div><label>發放金額</label><input id="distributionAmount" type="number" min="0" step="1"></div>
@@ -144,7 +151,6 @@
         <label>分潤類型</label>
         <select id="distributionType">
           <option value="shareholder">股東分潤</option>
-          <option value="employee">員工分潤</option>
           <option value="other">其他分潤</option>
         </select>
       </div>
@@ -162,12 +168,13 @@
 <section id="bank">
   <div class="card">
     <h2>銀行帳戶期初設定</h2>
-    <p class="notice">請輸入開始使用系統當天的銀行實際餘額。之後系統會自動加上營收，扣除每日支出、固定支出及實際發放分潤。</p>
+    <p class="notice">銀行推算餘額會從下方設定的「期初日期」開始累積；早於此日期的營收、支出與固定支出不會納入。請輸入該日的銀行實際餘額。</p>
     <div class="form-grid">
       <div><label>期初日期</label><input id="bankOpeningDate" type="date"></div>
       <div><label>期初銀行餘額</label><input id="bankOpeningBalance" type="number" step="1"></div>
     </div>
     <button class="btn" id="saveBankOpening">儲存期初設定</button>
+    <div id="bankOpeningWarning" class="warning-box" style="display:none"></div>
   </div>
 
   <div class="card" style="margin-top:12px">
@@ -236,12 +243,12 @@
         <input id="openingDateInput" type="date">
       </div>
       <div>
-        <label>股東分潤比例（%）</label>
-        <input id="shareholderRateInput" type="number" min="0" max="100" step="0.1">
+        <label>保留營運資金（%）</label>
+        <input id="reserveRateInput" type="number" min="0" max="100" step="0.1">
       </div>
       <div>
-        <label>員工分潤比例（%）</label>
-        <input id="employeeRateInput" type="number" min="0" max="100" step="0.1">
+        <label>目前可供股東分配比例</label>
+        <input id="shareholderRateDisplay" type="text" disabled>
       </div>
       <div>
         <label>營業時間</label>
@@ -251,7 +258,7 @@
         <button class="btn" id="saveStoreSettings">儲存店家設定</button>
       </div>
     </div>
-    <p class="notice">月報、季報、年報會從「開幕日」開始統計；分潤欄位會依這裡的比例自動計算。</p>
+    <p class="notice">月報、季報、年報會從「開幕日」開始統計。員工製菸報酬請由每日記帳列支；淨利扣除保留營運資金後，才是股東可分配盈餘。</p>
   </div>
 
 
@@ -260,17 +267,9 @@
     <p id="cloudStatus" class="notice">正在讀取雲端設定…</p>
     <div class="actions">
       <button class="btn" id="reloadCloud">重新讀取雲端資料</button>
-      <button class="btn secondary" id="uploadCloud">立即同步目前變更</button>
+      <button class="btn secondary" id="uploadCloud">把目前資料上傳到雲端</button>
     </div>
-    <p class="notice">Apps Script 網址與存取密碼請填在 <code>config.js</code>。V2 Beta 只執行合併同步，不提供整份覆蓋雲端。</p>
-    <div class="diag-grid" style="margin-top:14px">
-      <div class="diag-item">版本<b id="diagVersion">V2 Beta 0.1</b></div>
-      <div class="diag-item">連線狀態<b id="diagConnection">檢查中</b></div>
-      <div class="diag-item">最後同步<b id="diagLastSync">尚未同步</b></div>
-      <div class="diag-item">本機有效資料<b id="diagLocalCount">0 筆</b></div>
-      <div class="diag-item">雲端有效資料<b id="diagCloudCount">尚未取得</b></div>
-      <div class="diag-item">裝置<b id="diagDevice">—</b></div>
-    </div>
+    <p class="notice">Apps Script 網址與存取密碼請填在 <code>config.js</code>。網頁會保留本機快取，但 Google Sheets 才是多人共用的主要資料。</p>
   </div>
 
   <div class="card" style="margin-top:12px">
@@ -287,17 +286,13 @@
 
 <script src="config.js"></script>
 <script>
-const APP_VERSION='V2 Beta 0.1';
-const STORE_KEY='shihouyan_cloud_cache_v2_beta_01';
+const STORE_KEY='shihouyan_cloud_cache_v1';
 const OLD_STORE_KEY='shihouyan_store_v4_1';
-const DEFAULT_STATE={daily:[],fixed:[],bankOpeningBalance:0,bankOpeningDate:today(),distributions:[],adjustments:[],deleted:{daily:[],fixed:[],distributions:[],adjustments:[]},storeSettings:{storeName:'室後菸',openingDate:'2026-04-01',shareholderRate:90,employeeRate:10,businessHours:'21:00–03:00'}};
+const DEFAULT_STATE={daily:[],fixed:[],bankOpeningBalance:0,bankOpeningDate:today(),distributions:[],adjustments:[],storeSettings:{storeName:'室後菸',openingDate:'2026-04-01',shareholderRate:90,reserveRate:10,businessHours:'21:00–03:00'}};
 const CLOUD_CONFIG=window.SHISHOUYAN_CONFIG||{};
 let state=loadState();
 let cloudSaveTimer=null;
 let cloudSaving=false;
-let cloudSaveQueued=false;
-let initialCloudFinished=false;
-let lastCloudCount=null;
 
 function normalizeState(data){
   const s=(data&&typeof data==='object')?data:{};
@@ -305,15 +300,14 @@ function normalizeState(data){
   if(!Array.isArray(s.fixed)) s.fixed=[];
   if(!Array.isArray(s.distributions)) s.distributions=[];
   if(!Array.isArray(s.adjustments)) s.adjustments=[];
-  if(!s.deleted||typeof s.deleted!=='object') s.deleted={};
-  ['daily','fixed','distributions','adjustments'].forEach(k=>{if(!Array.isArray(s.deleted[k])) s.deleted[k]=[]});
   if(typeof s.bankOpeningBalance!=='number') s.bankOpeningBalance=Number(s.bankOpeningBalance||0);
   if(!s.bankOpeningDate) s.bankOpeningDate=today();
   if(!s.storeSettings) s.storeSettings={};
   if(!s.storeSettings.storeName) s.storeSettings.storeName='室後菸';
   if(!s.storeSettings.openingDate) s.storeSettings.openingDate='2026-04-01';
-  if(typeof s.storeSettings.shareholderRate!=='number') s.storeSettings.shareholderRate=90;
-  if(typeof s.storeSettings.employeeRate!=='number') s.storeSettings.employeeRate=10;
+  if(typeof s.storeSettings.reserveRate!=='number') s.storeSettings.reserveRate=typeof s.storeSettings.employeeRate==='number'?s.storeSettings.employeeRate:10;
+  s.storeSettings.shareholderRate=Math.max(0,100-s.storeSettings.reserveRate);
+  delete s.storeSettings.employeeRate;
   if(!s.storeSettings.businessHours) s.storeSettings.businessHours='21:00–03:00';
   return s;
 }
@@ -326,30 +320,11 @@ function loadState(){
   }
 }
 
-function setCloudStatus(message,isError=false,status=''){
+function setCloudStatus(message,isError=false){
   const node=document.getElementById('cloudStatus');
-  if(node){node.textContent=message;node.style.color=isError?'#ff9c9c':'';}
-  const badge=document.getElementById('syncBadge');
-  if(badge){
-    const cls=isError?'error':(status==='ok'?'ok':'syncing');
-    badge.className='sync-badge '+cls;
-    badge.textContent=(cls==='ok'?'● 已同步':cls==='error'?'● 同步異常':'● 同步中')+(status==='ok'&&localStorage.getItem('shishouyan_last_sync')?'｜'+localStorage.getItem('shishouyan_last_sync'):'');
-  }
-  updateDiagnostics();
-}
-function effectiveCount(s){return ['daily','fixed','distributions','adjustments'].reduce((n,k)=>n+((s&&s[k])||[]).length,0)}
-function updateDiagnostics(){
-  const set=(id,text)=>{const n=document.getElementById(id);if(n)n.textContent=text};
-  set('diagVersion',APP_VERSION);set('diagLocalCount',effectiveCount(state)+' 筆');
-  set('diagCloudCount',lastCloudCount===null?'尚未取得':lastCloudCount+' 筆');
-  set('diagLastSync',localStorage.getItem('shishouyan_last_sync')||'尚未同步');
-  set('diagConnection',cloudReady()?(navigator.onLine?'已設定／網路正常':'目前離線'):'尚未設定');
-  set('diagDevice',/iPhone|iPad|iPod/i.test(navigator.userAgent)?'Apple 行動裝置':/Android/i.test(navigator.userAgent)?'Android':/Macintosh/i.test(navigator.userAgent)?'Mac':'瀏覽器裝置');
-}
-function finishStartup(message){
-  if(initialCloudFinished)return;initialCloudFinished=true;
-  const msg=document.getElementById('startupMessage');if(msg&&message)msg.textContent=message;
-  setTimeout(()=>{const mask=document.getElementById('startupLoading');if(mask)mask.style.display='none'},250);
+  if(!node) return;
+  node.textContent=message;
+  node.style.color=isError?'#ff9c9c':'';
 }
 
 function cloudReady(){
@@ -370,37 +345,52 @@ function save(){
 }
 
 function submitCloudForm(payload){
-  return new Promise((resolve)=>{
+  return new Promise((resolve,reject)=>{
     const iframe=document.createElement('iframe');
-    iframe.name='cloudSaveFrame_'+Date.now();iframe.style.display='none';
-    const form=document.createElement('form');form.method='POST';form.action=CLOUD_CONFIG.scriptUrl;form.target=iframe.name;form.style.display='none';
-    Object.entries(payload).forEach(([key,value])=>{const input=document.createElement('input');input.type='hidden';input.name=key;input.value=value;form.appendChild(input)});
-    let submitted=false,finished=false;
-    const cleanup=()=>{if(finished||!submitted)return;finished=true;setTimeout(()=>{form.remove();iframe.remove()},100);resolve()};
-    iframe.onload=cleanup;document.body.appendChild(iframe);document.body.appendChild(form);
-    setTimeout(()=>{submitted=true;form.submit()},50);setTimeout(()=>{submitted=true;cleanup()},6000);
+    iframe.name='cloudSaveFrame_'+Date.now();
+    iframe.style.display='none';
+    const form=document.createElement('form');
+    form.method='POST';
+    form.action=CLOUD_CONFIG.scriptUrl;
+    form.target=iframe.name;
+    form.style.display='none';
+    Object.entries(payload).forEach(([key,value])=>{
+      const input=document.createElement('input');
+      input.type='hidden'; input.name=key; input.value=value;
+      form.appendChild(input);
+    });
+    let finished=false;
+    const cleanup=()=>{
+      if(finished) return;
+      finished=true;
+      setTimeout(()=>{form.remove();iframe.remove()},100);
+      resolve();
+    };
+    iframe.onload=cleanup;
+    document.body.appendChild(iframe);
+    document.body.appendChild(form);
+    form.submit();
+    setTimeout(cleanup,5000);
   });
 }
 
 async function saveCloudState(){
-  if(!cloudReady()) return;
-  if(cloudSaving){cloudSaveQueued=true;return;}
+  if(!cloudReady()||cloudSaving) return;
   cloudSaving=true;
   setCloudStatus('正在同步到 Google Sheets…');
   try{
     await submitCloudForm({
-      action:'merge',
+      action:'save',
       token:CLOUD_CONFIG.accessToken,
       payload:JSON.stringify(state)
     });
-    setCloudStatus('已送出多人合併同步，正在確認…');
-    setTimeout(()=>loadCloudState(false),1300);
+    setCloudStatus('已送出雲端同步。正在確認最新資料…');
+    setTimeout(()=>loadCloudState(false),800);
   }catch(error){
     console.error(error);
     setCloudStatus('雲端同步失敗，本機資料仍保留。',true);
   }finally{
     cloudSaving=false;
-    if(cloudSaveQueued){cloudSaveQueued=false;setTimeout(()=>saveCloudState(),250)}
   }
 }
 
@@ -415,19 +405,19 @@ function loadCloudState(showAlert=true){
   const script=document.createElement('script');
   const timeout=setTimeout(()=>{
     delete window[callback]; script.remove();
-    setCloudStatus('讀取逾時，已保留本機快取。',true);finishStartup('雲端讀取逾時，先顯示本機資料。');
+    setCloudStatus('讀取逾時，正在使用本機快取。',true);
   },12000);
   window[callback]=(response)=>{
     clearTimeout(timeout);
     delete window[callback];
     script.remove();
     if(response&&response.ok){
-      state=mergeClientStates(state,normalizeState(response.state||{}));
+      state=normalizeState(response.state||{});
       localStorage.setItem(STORE_KEY,JSON.stringify(state));
       renderAll();
-      lastCloudCount=effectiveCount(response.state||{});const stamp=new Date().toLocaleString('zh-TW',{hour12:false});localStorage.setItem('shishouyan_last_sync',stamp);setCloudStatus(`已同步 Google Sheets（${stamp}）`,false,'ok');finishStartup('已取得最新資料。');
+      setCloudStatus(`已同步 Google Sheets（${response.updatedAt||'剛剛'}）`);
     }else{
-      setCloudStatus(`讀取失敗：${response&&response.error?response.error:'未知錯誤'}`,true);finishStartup('雲端讀取失敗，先顯示本機資料。');
+      setCloudStatus(`讀取失敗：${response&&response.error?response.error:'未知錯誤'}`,true);
     }
   };
   const url=new URL(CLOUD_CONFIG.scriptUrl);
@@ -439,32 +429,10 @@ function loadCloudState(showAlert=true){
   script.onerror=()=>{
     clearTimeout(timeout);
     delete window[callback]; script.remove();
-    setCloudStatus('無法連線 Google Apps Script，已保留本機快取。',true);finishStartup('無法連線雲端，先顯示本機資料。');
+    setCloudStatus('無法連線 Google Apps Script，正在使用本機快取。',true);
   };
   document.body.appendChild(script);
 }
-
-function mergeClientStates(localState,cloudState){
-  localState=normalizeState(localState); cloudState=normalizeState(cloudState);
-  const deleted={};
-  ['daily','fixed','distributions','adjustments'].forEach(k=>deleted[k]=[...new Set([...(localState.deleted[k]||[]),...(cloudState.deleted[k]||[])])]);
-  const merge=(a,b,del)=>{
-    const map=new Map(); [...(b||[]),...(a||[])].forEach(x=>{if(x&&x.id)map.set(String(x.id),x)});
-    (del||[]).forEach(id=>map.delete(String(id)));
-    return [...map.values()];
-  };
-  return normalizeState({
-    daily:merge(localState.daily,cloudState.daily,deleted.daily),
-    fixed:merge(localState.fixed,cloudState.fixed,deleted.fixed),
-    distributions:merge(localState.distributions,cloudState.distributions,deleted.distributions),
-    adjustments:merge(localState.adjustments,cloudState.adjustments,deleted.adjustments),
-    deleted,
-    bankOpeningDate:cloudState.bankOpeningDate||localState.bankOpeningDate,
-    bankOpeningBalance:Number.isFinite(Number(cloudState.bankOpeningBalance))?Number(cloudState.bankOpeningBalance):localState.bankOpeningBalance,
-    storeSettings:{...(localState.storeSettings||{}),...(cloudState.storeSettings||{})}
-  });
-}
-
 const el=id=>document.getElementById(id);
 function money(v){return new Intl.NumberFormat('zh-TW',{style:'currency',currency:'TWD',maximumFractionDigits:0}).format(v||0)}
 function today(){return new Date().toISOString().slice(0,10)}
@@ -551,9 +519,32 @@ function renderDistributions(){
     rows.map(x=>`<tr><td>${x.date}</td><td>${distributionTypeText(x.type)}</td><td>${esc(x.recipient)}</td><td>${money(x.amount)}</td><td>${esc(x.note)}</td><td><button class="btn danger" onclick="delDistribution('${x.id}')">刪除</button></td></tr>`).join('');
 }
 
+function bankOpeningIssues(date){
+  const issues=[];
+  const earlierDaily=state.daily.filter(x=>x.date<date);
+  const earlierFixed=state.fixed.filter(x=>x.start<date);
+  const earlierDistributions=state.distributions.filter(x=>x.date<date);
+  const earlierAdjustments=state.adjustments.filter(x=>x.date<date);
+  if(earlierDaily.length) issues.push(`${earlierDaily.length} 筆較早的每日記帳`);
+  if(earlierFixed.length) issues.push(`${earlierFixed.length} 筆較早開始的固定支出規則`);
+  if(earlierDistributions.length) issues.push(`${earlierDistributions.length} 筆較早的分潤紀錄`);
+  if(earlierAdjustments.length) issues.push(`${earlierAdjustments.length} 筆較早的銀行調整`);
+  return issues;
+}
+
+function renderBankOpeningWarning(){
+  const box=el('bankOpeningWarning');
+  if(!box) return;
+  const date=el('bankOpeningDate').value||state.bankOpeningDate||today();
+  const issues=bankOpeningIssues(date);
+  box.style.display=issues.length?'block':'none';
+  box.innerHTML=issues.length?`⚠️ 目前期初日期為 <b>${date}</b>，系統發現 ${issues.join('、')}。這些較早資料不會納入銀行推算餘額。請確認期初日期是否正確。`:'';
+}
+
 function renderBank(){
   el('bankOpeningDate').value=state.bankOpeningDate||today();
   el('bankOpeningBalance').value=state.bankOpeningBalance||0;
+  renderBankOpeningWarning();
   const rows=[...state.adjustments].sort((a,b)=>b.date.localeCompare(a.date));
   el('adjustmentTable').innerHTML=`<tr><th>日期</th><th>項目</th><th>金額</th><th>備註</th><th></th></tr>`+
     rows.map(x=>`<tr><td>${x.date}</td><td>${esc(x.category)}</td><td class="${(+x.amount||0)>=0?'positive':'negative'}">${money(x.amount)}</td><td>${esc(x.note)}</td><td><button class="btn danger" onclick="delAdjustment('${x.id}')">刪除</button></td></tr>`).join('');
@@ -588,8 +579,10 @@ function renderDaily(){
     (rows.length?rows.map(x=>`<tr><td>${x.date}</td><td>${money(x.income)}</td><td>${money(x.expense)}</td><td>${esc(x.category)}</td><td>${esc(x.note)}</td><td><button class="btn danger" onclick="delDaily('${x.id}')">刪除</button></td></tr>`).join(''):`<tr><td colspan="6" class="notice">目前尚無每日記帳紀錄</td></tr>`);
 }
 function renderFixed(){
-  el('fixedTable').innerHTML=`<tr><th>項目</th><th>金額</th><th>週期</th><th>開始</th><th>結束</th><th></th></tr>`+
-    state.fixed.map(x=>`<tr><td>${esc(x.name)}</td><td>${money(x.amount)}</td><td>${cycleText(x.cycle)}</td><td>${x.start}</td><td>${x.end||'—'}</td><td><button class="btn danger" onclick="delFixed('${x.id}')">刪除</button></td></tr>`).join('');
+  const box=el('fixedCards');
+  if(!box) return;
+  const rows=[...state.fixed].sort((a,b)=>(a.name||'').localeCompare(b.name||'','zh-Hant'));
+  box.innerHTML=rows.length?rows.map(x=>`<div class="fixed-item"><div class="fixed-item-head"><div><div class="fixed-item-title">${esc(x.name)}</div><div class="value" style="font-size:22px;margin-top:6px">${money(x.amount)}</div></div><button class="btn danger" onclick="delFixed('${x.id}')">刪除</button></div><div class="fixed-item-meta">週期：${cycleText(x.cycle)}<br>開始：${x.start}｜結束：${x.end||'持續有效'}<br>入帳日：每期 ${x.day||1} 日${x.note?`<br>備註：${esc(x.note)}`:''}</div></div>`).join(''):`<div class="notice">目前尚未建立固定支出規則。</div>`;
 }
 function cycleText(c){return c==='monthly'?'每月':c==='quarterly'?'每季':'每年'}
 let reportCache={monthly:[],quarterly:[],yearly:[]};
@@ -720,19 +713,20 @@ function renderStoreSettings(){
   const s=state.storeSettings||{};
   if(window.storeNameInput) storeNameInput.value=s.storeName||'室後菸';
   if(window.openingDateInput) openingDateInput.value=s.openingDate||'2026-04-01';
-  if(window.shareholderRateInput) shareholderRateInput.value=s.shareholderRate??90;
-  if(window.employeeRateInput) employeeRateInput.value=s.employeeRate??10;
+  const reserve=Number.isFinite(+s.reserveRate)?+s.reserveRate:10;
+  if(window.reserveRateInput) reserveRateInput.value=reserve;
+  if(window.shareholderRateDisplay) shareholderRateDisplay.value=`${Math.max(0,100-reserve)}%`; 
   if(window.businessHoursInput) businessHoursInput.value=s.businessHours||'21:00–03:00';
   document.title=`${s.storeName||'室後菸'}店務管理`;
   const titleEl=document.querySelector('h1');
   if(titleEl) titleEl.textContent=`${s.storeName||'室後菸'}店務管理`;
 }
 
-function renderAll(){const jobs=[renderDashboard,renderDaily,renderFixed,renderDistributions,renderBank,renderReports,renderStoreSettings]; jobs.forEach(fn=>{try{fn()}catch(e){console.error(fn.name,e)}});updateDiagnostics()}
-window.delDaily=id=>{state.daily=state.daily.filter(x=>x.id!==id);state.deleted.daily.push(id);save()}
-window.delFixed=id=>{state.fixed=state.fixed.filter(x=>x.id!==id);state.deleted.fixed.push(id);save()}
-window.delDistribution=id=>{state.distributions=state.distributions.filter(x=>x.id!==id);state.deleted.distributions.push(id);save()}
-window.delAdjustment=id=>{state.adjustments=state.adjustments.filter(x=>x.id!==id);state.deleted.adjustments.push(id);save()}
+function renderAll(){const jobs=[renderDashboard,renderDaily,renderFixed,renderDistributions,renderBank,renderReports]; jobs.forEach(fn=>{try{fn()}catch(e){console.error(fn.name,e)}})}
+window.delDaily=id=>{state.daily=state.daily.filter(x=>x.id!==id);save()}
+window.delFixed=id=>{state.fixed=state.fixed.filter(x=>x.id!==id);save()}
+window.delDistribution=id=>{state.distributions=state.distributions.filter(x=>x.id!==id);save()}
+window.delAdjustment=id=>{state.adjustments=state.adjustments.filter(x=>x.id!==id);save()}
 
 document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#nav button').forEach(x=>x.classList.toggle('active',x===b));
@@ -749,9 +743,21 @@ el('addDaily').onclick=()=>{
   save();
   const s=el('dailySaveStatus'); s.style.display='block'; s.textContent=`已儲存 ${date}：收入 ${money(income)}，支出 ${money(expense)}。下方明細已更新。`;
 }
+document.querySelectorAll('.fixed-template').forEach(btn=>btn.onclick=()=>{
+  fixedName.value=btn.dataset.name;
+  fixedCycle.value='monthly';
+  fixedAmount.focus();
+});
+
 addFixed.onclick=()=>{
-  if(!fixedName.value.trim() || !(+fixedAmount.value>0) || !fixedStart.value){alert('請填寫名稱、金額與開始日期');return}
-  state.fixed.push({id:crypto.randomUUID(),name:fixedName.value.trim(),amount:+fixedAmount.value,cycle:fixedCycle.value,start:fixedStart.value,end:fixedEnd.value,day:+fixedDay.value||1,note:fixedNote.value.trim()});
+  const name=fixedName.value.trim();
+  if(!name || !(+fixedAmount.value>0) || !fixedStart.value){alert('請填寫名稱、金額與開始日期');return}
+  const duplicate=state.fixed.find(x=>(x.name||'').trim().toLowerCase()===name.toLowerCase() && x.cycle===fixedCycle.value && !x.end);
+  if(duplicate){
+    alert(`已存在「${duplicate.name}／${cycleText(duplicate.cycle)}」的有效固定支出規則。請刪除或調整原規則，不要重複建立。`);
+    return;
+  }
+  state.fixed.push({id:(crypto.randomUUID?crypto.randomUUID():String(Date.now())),name,amount:+fixedAmount.value,cycle:fixedCycle.value,start:fixedStart.value,end:fixedEnd.value,day:+fixedDay.value||1,note:fixedNote.value.trim()});
   fixedName.value='';fixedAmount.value='';fixedEnd.value='';fixedNote.value='';save();
 }
 
@@ -765,9 +771,13 @@ addDistribution.onclick=()=>{
   distributionAmount.value='';distributionRecipient.value='';distributionNote.value='';save();
 }
 
+bankOpeningDate.addEventListener('change',renderBankOpeningWarning);
+
 saveBankOpening.onclick=()=>{
   const amount=Number(bankOpeningBalance.value);
   if(!bankOpeningDate.value || !Number.isFinite(amount)){alert('請填寫期初日期與餘額');return}
+  const issues=bankOpeningIssues(bankOpeningDate.value);
+  if(issues.length && !confirm(`這個期初日期之前已有：${issues.join('、')}。較早資料不會納入推算，仍要儲存嗎？`)) return;
   state.bankOpeningDate=bankOpeningDate.value;
   state.bankOpeningBalance=amount;
   save();
@@ -786,33 +796,37 @@ addAdjustment.onclick=()=>{
 
 
 saveStoreSettings.onclick=()=>{
-  const shareholderRate=Number(shareholderRateInput.value);
-  const employeeRate=Number(employeeRateInput.value);
+  const reserveRate=Number(reserveRateInput.value);
   if(!storeNameInput.value.trim() || !openingDateInput.value){
     alert('請填寫店名與開幕日');
     return;
   }
-  if(!Number.isFinite(shareholderRate) || shareholderRate<0 || shareholderRate>100 ||
-     !Number.isFinite(employeeRate) || employeeRate<0 || employeeRate>100){
-    alert('分潤比例請輸入 0 到 100 之間的數字');
+  if(!Number.isFinite(reserveRate) || reserveRate<0 || reserveRate>100){
+    alert('保留營運資金比例請輸入 0 到 100 之間的數字');
     return;
   }
   state.storeSettings={
     storeName:storeNameInput.value.trim(),
     openingDate:openingDateInput.value,
-    shareholderRate,
-    employeeRate,
+    reserveRate,
+    shareholderRate:100-reserveRate,
     businessHours:businessHoursInput.value.trim()
   };
   save();
+  renderStoreSettings();
   alert('店家設定已儲存');
 }
+
+reserveRateInput.addEventListener('input',()=>{
+  const reserve=Number(reserveRateInput.value);
+  shareholderRateDisplay.value=Number.isFinite(reserve)?`${Math.max(0,100-reserve)}%`:'—';
+});
 
 
 el('reloadCloud').onclick=()=>loadCloudState(true);
 el('uploadCloud').onclick=()=>{
   if(!cloudReady()){alert('請先設定 config.js');return}
-  saveCloudState();
+  if(confirm('確定要用目前畫面中的資料覆蓋 Google Sheets 嗎？')) saveCloudState();
 };
 
 exportData.onclick=()=>{
@@ -824,11 +838,10 @@ importData.onchange=async e=>{
   try{state=JSON.parse(await f.text());save();alert('匯入完成')}
   catch{alert('檔案格式錯誤')}
 }
-clearData.onclick=()=>{if(confirm('確定清除全部資料？此動作無法復原。')){state={daily:[],fixed:[],bankOpeningBalance:0,bankOpeningDate:today(),distributions:[],adjustments:[],deleted:{daily:[],fixed:[],distributions:[],adjustments:[]},storeSettings:{storeName:'室後菸',openingDate:'2026-04-01',shareholderRate:90,employeeRate:10,businessHours:'21:00–03:00'}};save()}}
-if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js?v=2.0.1').then(r=>r.update()).catch(()=>{});
-window.addEventListener('online',()=>{updateDiagnostics();loadCloudState(false)});window.addEventListener('offline',updateDiagnostics);
+clearData.onclick=()=>{if(confirm('確定清除全部資料？此動作無法復原。')){state={daily:[],fixed:[],bankOpeningBalance:0,bankOpeningDate:today(),distributions:[],adjustments:[],storeSettings:{storeName:'室後菸',openingDate:'2026-04-01',shareholderRate:90,reserveRate:10,businessHours:'21:00–03:00'}};save()}}
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 renderAll();
-if(!cloudReady()){finishStartup('尚未設定雲端連線，先顯示本機資料。')}else setTimeout(()=>loadCloudState(false),150);
+setTimeout(()=>loadCloudState(false),200);
 </script>
 </body>
 </html>
