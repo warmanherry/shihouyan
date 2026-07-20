@@ -279,6 +279,7 @@ const CLOUD_CONFIG=window.SHISHOUYAN_CONFIG||{};
 let state=loadState();
 let cloudSaveTimer=null;
 let cloudSaving=false;
+let localRevision=0;
 
 function normalizeState(data){
   const s=(data&&typeof data==='object')?data:{};
@@ -318,6 +319,7 @@ function cloudReady(){
 }
 
 function save(){
+  localRevision++;
   localStorage.setItem(STORE_KEY,JSON.stringify(state));
   renderAll();
   if(cloudReady()){
@@ -362,15 +364,17 @@ function submitCloudForm(payload){
 async function saveCloudState(){
   if(!cloudReady()||cloudSaving) return;
   cloudSaving=true;
+  const payload=JSON.stringify(state);
   setCloudStatus('正在同步到 Google Sheets…');
   try{
     await submitCloudForm({
       action:'save',
       token:CLOUD_CONFIG.accessToken,
-      payload:JSON.stringify(state)
+      payload
     });
-    setCloudStatus('已送出雲端同步。正在確認最新資料…');
-    setTimeout(()=>loadCloudState(false),800);
+    // 不在儲存後立刻回讀，避免 Google Sheets 尚未寫完時，
+    // 舊的雲端資料反過來覆蓋剛輸入的新資料。
+    setCloudStatus('已送出同步至 Google Sheets。本機資料已安全保留。');
   }catch(error){
     console.error(error);
     setCloudStatus('雲端同步失敗，本機資料仍保留。',true);
@@ -379,7 +383,8 @@ async function saveCloudState(){
   }
 }
 
-function loadCloudState(showAlert=true){
+function loadCloudState(showAlert=true,force=false){
+  const requestRevision=localRevision;
   if(!cloudReady()){
     setCloudStatus('尚未設定 Apps Script 網址或存取密碼。',true);
     if(showAlert) alert('請先編輯 config.js');
@@ -397,6 +402,10 @@ function loadCloudState(showAlert=true){
     delete window[callback];
     script.remove();
     if(response&&response.ok){
+      if(!force && requestRevision!==localRevision){
+        setCloudStatus('偵測到較新的本機輸入，已略過較舊的雲端回應。');
+        return;
+      }
       state=normalizeState(response.state||{});
       localStorage.setItem(STORE_KEY,JSON.stringify(state));
       renderAll();
@@ -762,7 +771,7 @@ saveStoreSettings.onclick=()=>{
 }
 
 
-el('reloadCloud').onclick=()=>loadCloudState(true);
+el('reloadCloud').onclick=()=>loadCloudState(true,true);
 el('uploadCloud').onclick=()=>{
   if(!cloudReady()){alert('請先設定 config.js');return}
   if(confirm('確定要用目前畫面中的資料覆蓋 Google Sheets 嗎？')) saveCloudState();
