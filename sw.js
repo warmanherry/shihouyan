@@ -1,4 +1,4 @@
-const CACHE='shishouyan-google-sheets-v1-1-2-final';
+const CACHE='shishouyan-google-sheets-v1-1-2-1-mobile-hotfix';
 const FILES=['./','./index.html','./config.js','./manifest.json'];
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(FILES)));

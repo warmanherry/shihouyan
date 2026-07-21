@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#171717" />
-  <title>室後菸｜店務管理 V1.1.2 Final</title>
+  <title>室後菸｜店務管理 V1.1.2.1</title>
   <link rel="manifest" href="manifest.json">
   <style>
     :root{
@@ -77,7 +77,7 @@
 <header>
   <div class="header-title">
     <h1>室後菸｜店務管理</h1>
-    <div class="sub">V1.1.2 Final｜認知修正、雲端同步狀態與離線保護。</div>
+    <div class="sub">V1.1.2.1｜多人同步、離線保護與手機讀取 Hotfix。</div>
   </div>
   <div class="sync-control" id="syncControl">
     <button class="sync-pill" id="syncPill" data-state="syncing" type="button" aria-expanded="false" aria-controls="syncPanel">
@@ -91,7 +91,7 @@
         <dt>網路</dt><dd id="syncDetailNetwork">檢查中</dd>
         <dt>待同步</dt><dd id="syncDetailPending">0 筆變更</dd>
         <dt>最後成功</dt><dd id="syncDetailTime">尚無</dd>
-        <dt>版本</dt><dd>V1.1.2 Final</dd>
+        <dt>版本</dt><dd>V1.1.2.1</dd>
       </dl>
       <div class="sync-error" id="syncDetailError" hidden></div>
       <div class="actions"><button class="btn secondary" id="syncClose" type="button">關閉</button><button class="btn" id="syncRetry" type="button">立即同步</button></div>
@@ -324,7 +324,7 @@
 const STORE_KEY='shihouyan_cloud_cache_v1';
 const OLD_STORE_KEY='shihouyan_store_v4_1';
 const SYNC_META_KEY='shihouyan_sync_meta_v1_1_2';
-const APP_VERSION='V1.1.2 Final';
+const APP_VERSION='V1.1.2.1';
 const DEFAULT_STATE={daily:[],fixed:[],bankOpeningBalance:0,bankOpeningDate:today(),distributions:[],adjustments:[],deleted:{daily:[],fixed:[],distributions:[],adjustments:[]},storeSettings:{storeName:'室後菸',openingDate:'2026-04-01',shareholderRate:90,reserveRate:10,businessHours:'21:00–03:00'}};
 const CLOUD_CONFIG=window.SHISHOUYAN_CONFIG||{};
 // V1.1.2 使用共用存取模式。認證與權限透過此介面隔離，
@@ -502,14 +502,14 @@ function loadCloudState(showAlert=true,options={}){
     reject(new Error('尚未設定雲端連線')); return;
   }
   if(!navigator.onLine){updateSyncUI('pending',`目前離線，${syncMeta.pending||0} 筆變更已保留。`);reject(new Error('目前離線'));return}
-  updateSyncUI('syncing','正在從 Google Sheets 讀取資料…');
+  updateSyncUI('syncing','正在從 Google Sheets 讀取資料…手機首次連線可能需要 10–30 秒。');
   const callback='shishouyanCloudCallback_'+Date.now();
   const script=document.createElement('script');
   const timeout=setTimeout(()=>{
     delete window[callback]; script.remove();
     const error=new Error('讀取逾時');
     syncMeta.lastError=error.message;persistSyncMeta();updateSyncUI('error','讀取逾時，正在使用本機快取。',error.message);reject(error);
-  },12000);
+  },30000);
   window[callback]=(response)=>{
     clearTimeout(timeout);
     delete window[callback];
@@ -989,7 +989,7 @@ if(!navigator.onLine){
   updateSyncUI('pending',`發現 ${syncMeta.pending} 筆未同步變更，準備上傳。`);
   setTimeout(()=>saveCloudState(),300);
 }else{
-  updateSyncUI('syncing','正在取得 Google Sheets 最新資料…');
+  updateSyncUI('syncing','正在取得 Google Sheets 最新資料…手機首次連線請稍候。');
   setTimeout(()=>loadCloudState(false).catch(()=>{}),200);
 }
 </script>
