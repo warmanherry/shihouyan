@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#171717" />
-  <title>室後菸｜店務管理 V1.1</title>
+  <title>室後菸｜店務管理 V1.1.2 Final</title>
   <link rel="manifest" href="manifest.json">
   <style>
     :root{
@@ -14,7 +14,19 @@
     }
     *{box-sizing:border-box}
     body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",sans-serif}
-    header{position:sticky;top:0;z-index:10;background:#171717;border-bottom:1px solid var(--line);padding:16px}
+    header{position:sticky;top:0;z-index:10;background:#171717;border-bottom:1px solid var(--line);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .header-title{min-width:0}
+    .sync-control{position:relative;flex:0 0 auto}
+    .sync-pill{display:flex;align-items:center;gap:8px;min-height:42px;padding:8px 12px;border:1px solid var(--line);border-radius:999px;background:var(--panel2);color:var(--text);cursor:pointer}
+    .sync-pill:hover{border-color:#6b6253}.sync-dot{width:10px;height:10px;border-radius:50%;background:var(--muted);flex:0 0 auto}
+    .sync-label{font-size:13px;font-weight:800}.sync-time{display:block;font-size:10px;color:var(--muted);font-weight:400;margin-top:1px}
+    .sync-pill[data-state="synced"] .sync-dot{background:var(--ok);box-shadow:0 0 0 3px rgba(143,199,154,.14)}
+    .sync-pill[data-state="pending"] .sync-dot{background:#e2bd65;box-shadow:0 0 0 3px rgba(226,189,101,.14)}
+    .sync-pill[data-state="error"] .sync-dot{background:var(--danger);box-shadow:0 0 0 3px rgba(221,127,127,.14)}
+    .sync-pill[data-state="syncing"] .sync-dot{background:transparent;border:2px solid #786c58;border-top-color:var(--gold);animation:spin .8s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .sync-panel{position:absolute;right:0;top:50px;width:min(340px,calc(100vw - 24px));padding:14px;background:#202020;border:1px solid var(--line);border-radius:14px;box-shadow:0 16px 40px rgba(0,0,0,.45);display:none}
+    .sync-panel.open{display:block}.sync-panel h3{margin:0 0 10px;font-size:15px}.sync-detail{display:grid;grid-template-columns:auto 1fr;gap:7px 14px;font-size:13px;line-height:1.5}.sync-detail dt{color:var(--muted)}.sync-detail dd{margin:0;text-align:right;word-break:break-word}.sync-error{color:#ffadad;margin-top:10px;font-size:12px;line-height:1.5}.sync-panel .actions{justify-content:flex-end}
     h1{font-size:20px;margin:0 0 4px}
     .sub{color:var(--muted);font-size:13px}
     nav{display:flex;overflow:auto;gap:8px;padding:10px 16px;background:#171717;border-bottom:1px solid var(--line)}
@@ -40,6 +52,8 @@
     th:first-child,td:first-child{text-align:left}
     .scroll{overflow:auto}
     .positive{color:var(--ok)} .negative{color:var(--danger)}
+    #dashboard .value.dashboard-positive{color:var(--text)}
+    #dashboard .value.dashboard-negative{color:var(--danger)}
     .notice{color:var(--muted);font-size:13px;line-height:1.6}
     .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
     .info-box{background:#2a2418;border:1px solid #6d5830;border-radius:12px;padding:12px 14px;color:#ead7ae;font-size:14px;line-height:1.6;margin:12px 0}
@@ -55,13 +69,34 @@
       .form-grid{grid-template-columns:1fr}
       main{padding:12px}
       .fixed-cards{grid-template-columns:1fr}
+      header{padding:10px 12px}.header-title .sub{display:none}.sync-pill{padding:7px 10px}.sync-label{font-size:12px}
     }
   </style>
 </head>
 <body>
 <header>
-  <h1>室後菸｜店務管理</h1>
-  <div class="sub">V1.1 修正版｜固定支出規則、防重複、銀行期初日期警示與營運資金設定。</div>
+  <div class="header-title">
+    <h1>室後菸｜店務管理</h1>
+    <div class="sub">V1.1.2 Final｜認知修正、雲端同步狀態與離線保護。</div>
+  </div>
+  <div class="sync-control" id="syncControl">
+    <button class="sync-pill" id="syncPill" data-state="syncing" type="button" aria-expanded="false" aria-controls="syncPanel">
+      <span class="sync-dot" aria-hidden="true"></span>
+      <span><span class="sync-label" id="syncLabel">準備同步</span><span class="sync-time" id="syncTime">尚未同步</span></span>
+    </button>
+    <div class="sync-panel" id="syncPanel" role="dialog" aria-label="同步詳細資訊">
+      <h3>雲端同步詳情</h3>
+      <dl class="sync-detail">
+        <dt>目前狀態</dt><dd id="syncDetailState">準備中</dd>
+        <dt>網路</dt><dd id="syncDetailNetwork">檢查中</dd>
+        <dt>待同步</dt><dd id="syncDetailPending">0 筆變更</dd>
+        <dt>最後成功</dt><dd id="syncDetailTime">尚無</dd>
+        <dt>版本</dt><dd>V1.1.2 Final</dd>
+      </dl>
+      <div class="sync-error" id="syncDetailError" hidden></div>
+      <div class="actions"><button class="btn secondary" id="syncClose" type="button">關閉</button><button class="btn" id="syncRetry" type="button">立即同步</button></div>
+    </div>
+  </div>
 </header>
 <nav id="nav">
   <button data-tab="dashboard" class="active">首頁</button>
@@ -267,7 +302,7 @@
     <p id="cloudStatus" class="notice">正在讀取雲端設定…</p>
     <div class="actions">
       <button class="btn" id="reloadCloud">重新讀取雲端資料</button>
-      <button class="btn secondary" id="uploadCloud">把目前資料上傳到雲端</button>
+      <button class="btn secondary" id="uploadCloud">立即同步目前變更</button>
     </div>
     <p class="notice">Apps Script 網址與存取密碼請填在 <code>config.js</code>。網頁會保留本機快取，但 Google Sheets 才是多人共用的主要資料。</p>
   </div>
@@ -288,11 +323,59 @@
 <script>
 const STORE_KEY='shihouyan_cloud_cache_v1';
 const OLD_STORE_KEY='shihouyan_store_v4_1';
-const DEFAULT_STATE={daily:[],fixed:[],bankOpeningBalance:0,bankOpeningDate:today(),distributions:[],adjustments:[],storeSettings:{storeName:'室後菸',openingDate:'2026-04-01',shareholderRate:90,reserveRate:10,businessHours:'21:00–03:00'}};
+const SYNC_META_KEY='shihouyan_sync_meta_v1_1_2';
+const APP_VERSION='V1.1.2 Final';
+const DEFAULT_STATE={daily:[],fixed:[],bankOpeningBalance:0,bankOpeningDate:today(),distributions:[],adjustments:[],deleted:{daily:[],fixed:[],distributions:[],adjustments:[]},storeSettings:{storeName:'室後菸',openingDate:'2026-04-01',shareholderRate:90,reserveRate:10,businessHours:'21:00–03:00'}};
 const CLOUD_CONFIG=window.SHISHOUYAN_CONFIG||{};
+// V1.1.2 使用共用存取模式。認證與權限透過此介面隔離，
+// 後續可換成個人帳號，而不需改寫同步、報表與離線佇列。
+const AUTH_CONTEXT={mode:'shared',userId:'shared-user',roles:['legacy-shared-editor']};
+function currentUser(){return AUTH_CONTEXT}
+function hasPermission(){return true}
 let state=loadState();
 let cloudSaveTimer=null;
 let cloudSaving=false;
+let cloudSyncRequested=false;
+let syncMeta=loadSyncMeta();
+
+function loadSyncMeta(){
+  try{
+    return Object.assign({pending:0,lastSyncedAt:'',lastError:'',revision:0},JSON.parse(localStorage.getItem(SYNC_META_KEY)||'{}'));
+  }catch{return {pending:0,lastSyncedAt:'',lastError:'',revision:0}}
+}
+
+function persistSyncMeta(){localStorage.setItem(SYNC_META_KEY,JSON.stringify(syncMeta))}
+
+function formatSyncTime(value){
+  if(!value) return '尚無';
+  const d=new Date(value);
+  return Number.isNaN(d.getTime())?String(value):new Intl.DateTimeFormat('zh-TW',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(d);
+}
+
+function updateSyncUI(status,message,error=''){
+  const labels={syncing:'同步中…',synced:'已同步',pending:navigator.onLine?'待同步':'離線待同步',error:'同步失敗'};
+  const pill=document.getElementById('syncPill');
+  if(pill) pill.dataset.state=status;
+  if(document.getElementById('syncLabel')) syncLabel.textContent=labels[status]||'同步狀態';
+  if(document.getElementById('syncTime')) syncTime.textContent=status==='syncing'?'請稍候':(syncMeta.lastSyncedAt?`最後 ${formatSyncTime(syncMeta.lastSyncedAt)}`:'尚未同步');
+  if(document.getElementById('syncDetailState')) syncDetailState.textContent=message||labels[status]||'—';
+  if(document.getElementById('syncDetailNetwork')) syncDetailNetwork.textContent=navigator.onLine?'線上':'離線';
+  if(document.getElementById('syncDetailPending')) syncDetailPending.textContent=`${syncMeta.pending||0} 筆變更`;
+  if(document.getElementById('syncDetailTime')) syncDetailTime.textContent=formatSyncTime(syncMeta.lastSyncedAt);
+  if(document.getElementById('syncDetailError')){
+    syncDetailError.hidden=!error;
+    syncDetailError.textContent=error?`錯誤：${error}`:'';
+  }
+  setCloudStatus(message||labels[status],status==='error');
+}
+
+function markPending(){
+  syncMeta.pending=(syncMeta.pending||0)+1;
+  syncMeta.revision=(syncMeta.revision||0)+1;
+  syncMeta.lastError='';
+  persistSyncMeta();
+  updateSyncUI('pending',navigator.onLine?`已儲存在本機，有 ${syncMeta.pending} 筆變更等待同步。`:`目前離線，${syncMeta.pending} 筆變更已安全保留在本機。`);
+}
 
 function normalizeState(data){
   const s=(data&&typeof data==='object')?data:{};
@@ -300,6 +383,8 @@ function normalizeState(data){
   if(!Array.isArray(s.fixed)) s.fixed=[];
   if(!Array.isArray(s.distributions)) s.distributions=[];
   if(!Array.isArray(s.adjustments)) s.adjustments=[];
+  if(!s.deleted||typeof s.deleted!=='object') s.deleted={};
+  ['daily','fixed','distributions','adjustments'].forEach(key=>{if(!Array.isArray(s.deleted[key])) s.deleted[key]=[]});
   if(typeof s.bankOpeningBalance!=='number') s.bankOpeningBalance=Number(s.bankOpeningBalance||0);
   if(!s.bankOpeningDate) s.bankOpeningDate=today();
   if(!s.storeSettings) s.storeSettings={};
@@ -335,12 +420,12 @@ function cloudReady(){
 function save(){
   localStorage.setItem(STORE_KEY,JSON.stringify(state));
   renderAll();
+  markPending();
   if(cloudReady()){
     clearTimeout(cloudSaveTimer);
-    setCloudStatus('本機已儲存，準備同步到 Google Sheets…');
-    cloudSaveTimer=setTimeout(()=>saveCloudState(),500);
+    if(navigator.onLine) cloudSaveTimer=setTimeout(()=>saveCloudState(),500);
   }else{
-    setCloudStatus('目前只儲存在本機。請先完成 config.js 的 Apps Script 設定。',true);
+    updateSyncUI('error','目前只儲存在本機。','尚未完成 config.js 的 Apps Script 設定');
   }
 }
 
@@ -375,49 +460,74 @@ function submitCloudForm(payload){
 }
 
 async function saveCloudState(){
-  if(!cloudReady()||cloudSaving) return;
+  if(!cloudReady()) return false;
+  if(cloudSaving){cloudSyncRequested=true;return false}
+  if(!navigator.onLine){updateSyncUI('pending',`目前離線，${syncMeta.pending||0} 筆變更已保留。`);return false}
   cloudSaving=true;
-  setCloudStatus('正在同步到 Google Sheets…');
+  let syncSucceeded=false;
+  const sentRevision=syncMeta.revision||0;
+  updateSyncUI('syncing','正在同步到 Google Sheets…');
   try{
     await submitCloudForm({
       action:'save',
       token:CLOUD_CONFIG.accessToken,
       payload:JSON.stringify(state)
     });
-    setCloudStatus('已送出雲端同步。正在確認最新資料…');
-    setTimeout(()=>loadCloudState(false),800);
+    updateSyncUI('syncing','已送出，正在確認 Google Sheets 資料…');
+    await new Promise(resolve=>setTimeout(resolve,800));
+    await loadCloudState(false,{confirmation:true,expectedRevision:sentRevision});
+    syncSucceeded=true;
+    return true;
   }catch(error){
     console.error(error);
-    setCloudStatus('雲端同步失敗，本機資料仍保留。',true);
+    syncMeta.lastError=error&&error.message?error.message:'無法確認雲端資料';
+    persistSyncMeta();
+    updateSyncUI('error','雲端同步失敗，本機資料仍安全保留。',syncMeta.lastError);
+    return false;
   }finally{
     cloudSaving=false;
+    if((cloudSyncRequested||(syncSucceeded&&syncMeta.pending>0)) && navigator.onLine){
+      cloudSyncRequested=false;
+      clearTimeout(cloudSaveTimer);
+      cloudSaveTimer=setTimeout(()=>saveCloudState(),400);
+    }
   }
 }
 
-function loadCloudState(showAlert=true){
+function loadCloudState(showAlert=true,options={}){
+  return new Promise((resolve,reject)=>{
   if(!cloudReady()){
-    setCloudStatus('尚未設定 Apps Script 網址或存取密碼。',true);
+    updateSyncUI('error','尚未設定 Apps Script 網址或存取密碼。','請檢查 config.js');
     if(showAlert) alert('請先編輯 config.js');
-    return;
+    reject(new Error('尚未設定雲端連線')); return;
   }
-  setCloudStatus('正在從 Google Sheets 讀取資料…');
+  if(!navigator.onLine){updateSyncUI('pending',`目前離線，${syncMeta.pending||0} 筆變更已保留。`);reject(new Error('目前離線'));return}
+  updateSyncUI('syncing','正在從 Google Sheets 讀取資料…');
   const callback='shishouyanCloudCallback_'+Date.now();
   const script=document.createElement('script');
   const timeout=setTimeout(()=>{
     delete window[callback]; script.remove();
-    setCloudStatus('讀取逾時，正在使用本機快取。',true);
+    const error=new Error('讀取逾時');
+    syncMeta.lastError=error.message;persistSyncMeta();updateSyncUI('error','讀取逾時，正在使用本機快取。',error.message);reject(error);
   },12000);
   window[callback]=(response)=>{
     clearTimeout(timeout);
     delete window[callback];
     script.remove();
     if(response&&response.ok){
-      state=normalizeState(response.state||{});
-      localStorage.setItem(STORE_KEY,JSON.stringify(state));
-      renderAll();
-      setCloudStatus(`已同步 Google Sheets（${response.updatedAt||'剛剛'}）`);
+      const hasNewerLocalChanges=(syncMeta.pending||0)>0 && !options.confirmation;
+      if(!hasNewerLocalChanges){
+        state=normalizeState(response.state||{});
+        localStorage.setItem(STORE_KEY,JSON.stringify(state));
+        renderAll();
+      }
+      if(options.confirmation && (syncMeta.revision||0)===options.expectedRevision) syncMeta.pending=0;
+      syncMeta.lastSyncedAt=new Date().toISOString();syncMeta.lastError='';persistSyncMeta();
+      const status=syncMeta.pending>0?'pending':'synced';
+      updateSyncUI(status,syncMeta.pending>0?`雲端已回應，仍有 ${syncMeta.pending} 筆新變更等待同步。`:`已同步 Google Sheets（${response.updatedAt||'剛剛'}）`);
+      resolve(response);
     }else{
-      setCloudStatus(`讀取失敗：${response&&response.error?response.error:'未知錯誤'}`,true);
+      const message=response&&response.error?response.error:'未知錯誤';syncMeta.lastError=message;persistSyncMeta();updateSyncUI('error',`讀取失敗：${message}`,message);reject(new Error(message));
     }
   };
   const url=new URL(CLOUD_CONFIG.scriptUrl);
@@ -429,12 +539,14 @@ function loadCloudState(showAlert=true){
   script.onerror=()=>{
     clearTimeout(timeout);
     delete window[callback]; script.remove();
-    setCloudStatus('無法連線 Google Apps Script，正在使用本機快取。',true);
+    const error=new Error('無法連線 Google Apps Script');syncMeta.lastError=error.message;persistSyncMeta();updateSyncUI('error','無法連線 Google Apps Script，正在使用本機快取。',error.message);reject(error);
   };
   document.body.appendChild(script);
+  });
 }
 const el=id=>document.getElementById(id);
-function money(v){return new Intl.NumberFormat('zh-TW',{style:'currency',currency:'TWD',maximumFractionDigits:0}).format(v||0)}
+function finiteNumber(v){const n=typeof v==='string'?Number(v.replace(/,/g,'')):Number(v);return Number.isFinite(n)?n:0}
+function money(v){return new Intl.NumberFormat('zh-TW',{style:'currency',currency:'TWD',minimumFractionDigits:0,maximumFractionDigits:0}).format(finiteNumber(v))}
 function today(){return new Date().toISOString().slice(0,10)}
 function ym(date){return date.slice(0,7)}
 function y(date){return date.slice(0,4)}
@@ -562,16 +674,20 @@ function renderBank(){
 
 function renderDashboard(){
   const m=today().slice(0,7), r=monthReport(m);
-  el('dashIncome').textContent=money(r.income); el('dashVariable').textContent=money(r.variable);
-  el('dashFixed').textContent=money(r.fixed); el('dashProfit').textContent=money(r.profit);
+  setDashboardMoney('dashIncome',r.income); setDashboardMoney('dashVariable',r.variable);
+  setDashboardMoney('dashFixed',r.fixed); setDashboardMoney('dashProfit',r.profit);
   const br=bankReconciliation();
-  el('dashBankBalance').textContent=money(br.balance);
+  setDashboardMoney('dashBankBalance',br.balance);
   const bankSummaryEl=el('bankSummary');
   if(bankSummaryEl){
     bankSummaryEl.innerHTML=`期初 ${money(br.opening)} ＋ 營收 ${money(br.income)} － 每日支出 ${money(br.variable)} － 固定支出 ${money(br.fixed)} － 已發放分潤 ${money(br.distributions)} ＋／－ 調整 ${money(br.adjustments)} ＝ <b>${money(br.balance)}</b>`;
   }
-  el('dashProfit').className='value '+(r.profit>=0?'positive':'negative');
   el('dashSummary').innerHTML=`<b>${m} 本月摘要</b><br>營收 ${money(r.income)}｜變動支出 ${money(r.variable)}｜固定支出 ${money(r.fixed)}｜總支出 ${money(r.total)}｜淨利 ${money(r.profit)}<br>本月套用固定支出 ${state.fixed.filter(f=>fixedApplies(f,m)).length} 筆。`;
+}
+function setDashboardMoney(id,value){
+  const node=el(id), amount=finiteNumber(value);
+  node.textContent=money(amount);
+  node.className=`value ${amount<0?'dashboard-negative':'dashboard-positive'}`;
 }
 function renderDaily(){
   const rows=[...state.daily].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,100);
@@ -723,10 +839,15 @@ function renderStoreSettings(){
 }
 
 function renderAll(){const jobs=[renderDashboard,renderDaily,renderFixed,renderDistributions,renderBank,renderReports]; jobs.forEach(fn=>{try{fn()}catch(e){console.error(fn.name,e)}})}
-window.delDaily=id=>{state.daily=state.daily.filter(x=>x.id!==id);save()}
-window.delFixed=id=>{state.fixed=state.fixed.filter(x=>x.id!==id);save()}
-window.delDistribution=id=>{state.distributions=state.distributions.filter(x=>x.id!==id);save()}
-window.delAdjustment=id=>{state.adjustments=state.adjustments.filter(x=>x.id!==id);save()}
+function softDelete(collection,id){
+  state[collection]=state[collection].filter(x=>x.id!==id);
+  if(!state.deleted[collection].includes(id)) state.deleted[collection].push(id);
+  save();
+}
+window.delDaily=id=>softDelete('daily',id)
+window.delFixed=id=>softDelete('fixed',id)
+window.delDistribution=id=>softDelete('distributions',id)
+window.delAdjustment=id=>softDelete('adjustments',id)
 
 document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#nav button').forEach(x=>x.classList.toggle('active',x===b));
@@ -823,11 +944,32 @@ reserveRateInput.addEventListener('input',()=>{
 });
 
 
-el('reloadCloud').onclick=()=>loadCloudState(true);
+el('reloadCloud').onclick=()=>loadCloudState(true).catch(()=>{});
 el('uploadCloud').onclick=()=>{
   if(!cloudReady()){alert('請先設定 config.js');return}
-  if(confirm('確定要用目前畫面中的資料覆蓋 Google Sheets 嗎？')) saveCloudState();
+  if(syncMeta.pending===0){
+    syncMeta.pending=1;syncMeta.revision=(syncMeta.revision||0)+1;persistSyncMeta();
+  }
+  saveCloudState();
 };
+
+syncPill.onclick=()=>{
+  const open=syncPanel.classList.toggle('open');
+  syncPill.setAttribute('aria-expanded',String(open));
+};
+syncClose.onclick=()=>{syncPanel.classList.remove('open');syncPill.setAttribute('aria-expanded','false')};
+syncRetry.onclick=()=>{
+  if(syncMeta.pending===0){syncMeta.pending=1;syncMeta.revision=(syncMeta.revision||0)+1;persistSyncMeta()}
+  saveCloudState();
+};
+document.addEventListener('click',event=>{
+  if(!syncControl.contains(event.target)){syncPanel.classList.remove('open');syncPill.setAttribute('aria-expanded','false')}
+});
+window.addEventListener('offline',()=>updateSyncUI('pending',`目前離線，${syncMeta.pending||0} 筆變更已保留在本機。`));
+window.addEventListener('online',()=>{
+  updateSyncUI(syncMeta.pending>0?'pending':'syncing',syncMeta.pending>0?`網路已恢復，準備同步 ${syncMeta.pending} 筆變更。`:'網路已恢復，正在檢查雲端資料。');
+  if(syncMeta.pending>0) saveCloudState(); else loadCloudState(false).catch(()=>{});
+});
 
 exportData.onclick=()=>{
   const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
@@ -838,10 +980,18 @@ importData.onchange=async e=>{
   try{state=JSON.parse(await f.text());save();alert('匯入完成')}
   catch{alert('檔案格式錯誤')}
 }
-clearData.onclick=()=>{if(confirm('確定清除全部資料？此動作無法復原。')){state={daily:[],fixed:[],bankOpeningBalance:0,bankOpeningDate:today(),distributions:[],adjustments:[],storeSettings:{storeName:'室後菸',openingDate:'2026-04-01',shareholderRate:90,reserveRate:10,businessHours:'21:00–03:00'}};save()}}
+clearData.onclick=()=>{if(confirm('確定清除全部資料？此動作無法復原。')){const deleted={};['daily','fixed','distributions','adjustments'].forEach(k=>deleted[k]=state[k].map(x=>x.id));state={daily:[],fixed:[],bankOpeningBalance:0,bankOpeningDate:today(),distributions:[],adjustments:[],deleted,storeSettings:{storeName:'室後菸',openingDate:'2026-04-01',shareholderRate:90,reserveRate:10,businessHours:'21:00–03:00'}};save()}}
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 renderAll();
-setTimeout(()=>loadCloudState(false),200);
+if(!navigator.onLine){
+  updateSyncUI('pending',`目前離線，${syncMeta.pending||0} 筆變更已保留在本機。`);
+}else if(syncMeta.pending>0){
+  updateSyncUI('pending',`發現 ${syncMeta.pending} 筆未同步變更，準備上傳。`);
+  setTimeout(()=>saveCloudState(),300);
+}else{
+  updateSyncUI('syncing','正在取得 Google Sheets 最新資料…');
+  setTimeout(()=>loadCloudState(false).catch(()=>{}),200);
+}
 </script>
 </body>
 </html>
