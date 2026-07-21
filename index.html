@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#171717" />
-  <title>室後菸｜店務管理 V1.1.2.1</title>
+  <title>室後菸｜店務管理 V1.1.2.2</title>
   <link rel="manifest" href="manifest.json">
   <style>
     :root{
@@ -77,7 +77,7 @@
 <header>
   <div class="header-title">
     <h1>室後菸｜店務管理</h1>
-    <div class="sub">V1.1.2.1｜多人同步、離線保護與手機讀取 Hotfix。</div>
+    <div class="sub">V1.1.2.2｜多人同步、手機讀取與店家設定回填修正。</div>
   </div>
   <div class="sync-control" id="syncControl">
     <button class="sync-pill" id="syncPill" data-state="syncing" type="button" aria-expanded="false" aria-controls="syncPanel">
@@ -91,7 +91,7 @@
         <dt>網路</dt><dd id="syncDetailNetwork">檢查中</dd>
         <dt>待同步</dt><dd id="syncDetailPending">0 筆變更</dd>
         <dt>最後成功</dt><dd id="syncDetailTime">尚無</dd>
-        <dt>版本</dt><dd>V1.1.2.1</dd>
+        <dt>版本</dt><dd>V1.1.2.2</dd>
       </dl>
       <div class="sync-error" id="syncDetailError" hidden></div>
       <div class="actions"><button class="btn secondary" id="syncClose" type="button">關閉</button><button class="btn" id="syncRetry" type="button">立即同步</button></div>
@@ -324,8 +324,8 @@
 const STORE_KEY='shihouyan_cloud_cache_v1';
 const OLD_STORE_KEY='shihouyan_store_v4_1';
 const SYNC_META_KEY='shihouyan_sync_meta_v1_1_2';
-const APP_VERSION='V1.1.2.1';
-const DEFAULT_STATE={daily:[],fixed:[],bankOpeningBalance:0,bankOpeningDate:today(),distributions:[],adjustments:[],deleted:{daily:[],fixed:[],distributions:[],adjustments:[]},storeSettings:{storeName:'室後菸',openingDate:'2026-04-01',shareholderRate:90,reserveRate:10,businessHours:'21:00–03:00'}};
+const APP_VERSION='V1.1.2.2';
+const DEFAULT_STATE={daily:[],fixed:[],bankOpeningBalance:0,bankOpeningDate:today(),distributions:[],adjustments:[],deleted:{daily:[],fixed:[],distributions:[],adjustments:[]},settingsUpdatedAt:'',storeSettings:{storeName:'室後菸',openingDate:'2026-04-01',shareholderRate:90,reserveRate:10,businessHours:'21:00–03:00'}};
 const CLOUD_CONFIG=window.SHISHOUYAN_CONFIG||{};
 // V1.1.2 使用共用存取模式。認證與權限透過此介面隔離，
 // 後續可換成個人帳號，而不需改寫同步、報表與離線佇列。
@@ -388,6 +388,7 @@ function normalizeState(data){
   if(typeof s.bankOpeningBalance!=='number') s.bankOpeningBalance=Number(s.bankOpeningBalance||0);
   if(!s.bankOpeningDate) s.bankOpeningDate=today();
   if(!s.storeSettings) s.storeSettings={};
+  if(typeof s.settingsUpdatedAt!=='string') s.settingsUpdatedAt='';
   if(!s.storeSettings.storeName) s.storeSettings.storeName='室後菸';
   if(!s.storeSettings.openingDate) s.storeSettings.openingDate='2026-04-01';
   if(typeof s.storeSettings.reserveRate!=='number') s.storeSettings.reserveRate=typeof s.storeSettings.employeeRate==='number'?s.storeSettings.employeeRate:10;
@@ -827,18 +828,23 @@ window.exportReportExcel=(type)=>{
 function esc(s=''){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
 function renderStoreSettings(){
   const s=state.storeSettings||{};
-  if(window.storeNameInput) storeNameInput.value=s.storeName||'室後菸';
-  if(window.openingDateInput) openingDateInput.value=s.openingDate||'2026-04-01';
+  const storeNameNode=el('storeNameInput');
+  const openingDateNode=el('openingDateInput');
+  const reserveRateNode=el('reserveRateInput');
+  const shareholderRateNode=el('shareholderRateDisplay');
+  const businessHoursNode=el('businessHoursInput');
+  if(storeNameNode) storeNameNode.value=s.storeName||'室後菸';
+  if(openingDateNode) openingDateNode.value=s.openingDate||'2026-04-01';
   const reserve=Number.isFinite(+s.reserveRate)?+s.reserveRate:10;
-  if(window.reserveRateInput) reserveRateInput.value=reserve;
-  if(window.shareholderRateDisplay) shareholderRateDisplay.value=`${Math.max(0,100-reserve)}%`; 
-  if(window.businessHoursInput) businessHoursInput.value=s.businessHours||'21:00–03:00';
+  if(reserveRateNode) reserveRateNode.value=reserve;
+  if(shareholderRateNode) shareholderRateNode.value=`${Math.max(0,100-reserve)}%`;
+  if(businessHoursNode) businessHoursNode.value=s.businessHours||'21:00–03:00';
   document.title=`${s.storeName||'室後菸'}店務管理`;
   const titleEl=document.querySelector('h1');
   if(titleEl) titleEl.textContent=`${s.storeName||'室後菸'}店務管理`;
 }
 
-function renderAll(){const jobs=[renderDashboard,renderDaily,renderFixed,renderDistributions,renderBank,renderReports]; jobs.forEach(fn=>{try{fn()}catch(e){console.error(fn.name,e)}})}
+function renderAll(){const jobs=[renderDashboard,renderDaily,renderFixed,renderDistributions,renderBank,renderReports,renderStoreSettings]; jobs.forEach(fn=>{try{fn()}catch(e){console.error(fn.name,e)}})}
 function softDelete(collection,id){
   state[collection]=state[collection].filter(x=>x.id!==id);
   if(!state.deleted[collection].includes(id)) state.deleted[collection].push(id);
@@ -933,6 +939,7 @@ saveStoreSettings.onclick=()=>{
     shareholderRate:100-reserveRate,
     businessHours:businessHoursInput.value.trim()
   };
+  state.settingsUpdatedAt=new Date().toISOString();
   save();
   renderStoreSettings();
   alert('店家設定已儲存');
@@ -980,7 +987,7 @@ importData.onchange=async e=>{
   try{state=JSON.parse(await f.text());save();alert('匯入完成')}
   catch{alert('檔案格式錯誤')}
 }
-clearData.onclick=()=>{if(confirm('確定清除全部資料？此動作無法復原。')){const deleted={};['daily','fixed','distributions','adjustments'].forEach(k=>deleted[k]=state[k].map(x=>x.id));state={daily:[],fixed:[],bankOpeningBalance:0,bankOpeningDate:today(),distributions:[],adjustments:[],deleted,storeSettings:{storeName:'室後菸',openingDate:'2026-04-01',shareholderRate:90,reserveRate:10,businessHours:'21:00–03:00'}};save()}}
+clearData.onclick=()=>{if(confirm('確定清除全部資料？此動作無法復原。')){const deleted={};['daily','fixed','distributions','adjustments'].forEach(k=>deleted[k]=state[k].map(x=>x.id));state={daily:[],fixed:[],bankOpeningBalance:0,bankOpeningDate:today(),distributions:[],adjustments:[],deleted,settingsUpdatedAt:state.settingsUpdatedAt||'',storeSettings:state.storeSettings||{storeName:'室後菸',openingDate:'2026-04-01',shareholderRate:90,reserveRate:10,businessHours:'21:00–03:00'}};save()}}
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 renderAll();
 if(!navigator.onLine){
