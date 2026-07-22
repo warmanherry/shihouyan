@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#171717" />
-  <title>室後菸｜店務管理 V1.1.2.2</title>
+  <title>室後菸｜店務管理 V1.1.2.3</title>
   <link rel="manifest" href="manifest.json">
   <style>
     :root{
@@ -77,7 +77,7 @@
 <header>
   <div class="header-title">
     <h1>室後菸｜店務管理</h1>
-    <div class="sub">V1.1.2.2｜多人同步、手機讀取與店家設定回填修正。</div>
+    <div class="sub">V1.1.2.3｜多人同步、店家設定回填與雲端寫入確認。</div>
   </div>
   <div class="sync-control" id="syncControl">
     <button class="sync-pill" id="syncPill" data-state="syncing" type="button" aria-expanded="false" aria-controls="syncPanel">
@@ -91,7 +91,7 @@
         <dt>網路</dt><dd id="syncDetailNetwork">檢查中</dd>
         <dt>待同步</dt><dd id="syncDetailPending">0 筆變更</dd>
         <dt>最後成功</dt><dd id="syncDetailTime">尚無</dd>
-        <dt>版本</dt><dd>V1.1.2.2</dd>
+        <dt>版本</dt><dd>V1.1.2.3</dd>
       </dl>
       <div class="sync-error" id="syncDetailError" hidden></div>
       <div class="actions"><button class="btn secondary" id="syncClose" type="button">關閉</button><button class="btn" id="syncRetry" type="button">立即同步</button></div>
@@ -324,7 +324,7 @@
 const STORE_KEY='shihouyan_cloud_cache_v1';
 const OLD_STORE_KEY='shihouyan_store_v4_1';
 const SYNC_META_KEY='shihouyan_sync_meta_v1_1_2';
-const APP_VERSION='V1.1.2.2';
+const APP_VERSION='V1.1.2.3';
 const DEFAULT_STATE={daily:[],fixed:[],bankOpeningBalance:0,bankOpeningDate:today(),distributions:[],adjustments:[],deleted:{daily:[],fixed:[],distributions:[],adjustments:[]},settingsUpdatedAt:'',storeSettings:{storeName:'室後菸',openingDate:'2026-04-01',shareholderRate:90,reserveRate:10,businessHours:'21:00–03:00'}};
 const CLOUD_CONFIG=window.SHISHOUYAN_CONFIG||{};
 // V1.1.2 使用共用存取模式。認證與權限透過此介面隔離，
@@ -467,6 +467,7 @@ async function saveCloudState(){
   cloudSaving=true;
   let syncSucceeded=false;
   const sentRevision=syncMeta.revision||0;
+  const sentSnapshot=normalizeState(JSON.parse(JSON.stringify(state)));
   updateSyncUI('syncing','正在同步到 Google Sheets…');
   try{
     await submitCloudForm({
@@ -475,8 +476,18 @@ async function saveCloudState(){
       payload:JSON.stringify(state)
     });
     updateSyncUI('syncing','已送出，正在確認 Google Sheets 資料…');
-    await new Promise(resolve=>setTimeout(resolve,800));
-    await loadCloudState(false,{confirmation:true,expectedRevision:sentRevision});
+    let confirmed=false;
+    for(let attempt=0;attempt<20;attempt++){
+      await new Promise(resolve=>setTimeout(resolve,attempt===0?900:1200));
+      const response=await loadCloudState(false,{verifySnapshot:sentSnapshot});
+      if(response.confirmed){
+        applyConfirmedCloudState(response.state,sentRevision);
+        confirmed=true;
+        break;
+      }
+      updateSyncUI('syncing',`已送出，等待 Google Sheets 寫入完成…（${attempt+1}/20）`);
+    }
+    if(!confirmed) throw new Error('Google Sheets 尚未確認收到這筆資料');
     syncSucceeded=true;
     return true;
   }catch(error){
@@ -493,6 +504,28 @@ async function saveCloudState(){
       cloudSaveTimer=setTimeout(()=>saveCloudState(),400);
     }
   }
+}
+
+function cloudContainsSnapshot(remote,snapshot){
+  const deleted=remote.deleted||{};
+  return ['daily','fixed','distributions','adjustments'].every(key=>{
+    const remoteIds=new Set((remote[key]||[]).map(x=>String(x.id||'')));
+    const deletedIds=new Set((deleted[key]||[]).map(String));
+    return (snapshot[key]||[]).every(x=>remoteIds.has(String(x.id||''))) &&
+      ((snapshot.deleted&&snapshot.deleted[key])||[]).every(id=>deletedIds.has(String(id)));
+  });
+}
+
+function applyConfirmedCloudState(remote,sentRevision){
+  if((syncMeta.revision||0)===sentRevision){
+    state=normalizeState(remote||{});
+    localStorage.setItem(STORE_KEY,JSON.stringify(state));
+    syncMeta.pending=0;
+    renderAll();
+  }
+  syncMeta.lastSyncedAt=new Date().toISOString();syncMeta.lastError='';persistSyncMeta();
+  const status=syncMeta.pending>0?'pending':'synced';
+  updateSyncUI(status,syncMeta.pending>0?`雲端已確認，仍有 ${syncMeta.pending} 筆新變更等待同步。`:'Google Sheets 已確認收到資料。');
 }
 
 function loadCloudState(showAlert=true,options={}){
@@ -516,6 +549,10 @@ function loadCloudState(showAlert=true,options={}){
     delete window[callback];
     script.remove();
     if(response&&response.ok){
+      if(options.verifySnapshot){
+        resolve(Object.assign({},response,{confirmed:cloudContainsSnapshot(normalizeState(response.state||{}),options.verifySnapshot)}));
+        return;
+      }
       const hasNewerLocalChanges=(syncMeta.pending||0)>0 && !options.confirmation;
       if(!hasNewerLocalChanges){
         state=normalizeState(response.state||{});
@@ -828,11 +865,7 @@ window.exportReportExcel=(type)=>{
 function esc(s=''){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
 function renderStoreSettings(){
   const s=state.storeSettings||{};
-  const storeNameNode=el('storeNameInput');
-  const openingDateNode=el('openingDateInput');
-  const reserveRateNode=el('reserveRateInput');
-  const shareholderRateNode=el('shareholderRateDisplay');
-  const businessHoursNode=el('businessHoursInput');
+  const storeNameNode=el('storeNameInput'),openingDateNode=el('openingDateInput'),reserveRateNode=el('reserveRateInput'),shareholderRateNode=el('shareholderRateDisplay'),businessHoursNode=el('businessHoursInput');
   if(storeNameNode) storeNameNode.value=s.storeName||'室後菸';
   if(openingDateNode) openingDateNode.value=s.openingDate||'2026-04-01';
   const reserve=Number.isFinite(+s.reserveRate)?+s.reserveRate:10;
@@ -987,7 +1020,7 @@ importData.onchange=async e=>{
   try{state=JSON.parse(await f.text());save();alert('匯入完成')}
   catch{alert('檔案格式錯誤')}
 }
-clearData.onclick=()=>{if(confirm('確定清除全部資料？此動作無法復原。')){const deleted={};['daily','fixed','distributions','adjustments'].forEach(k=>deleted[k]=state[k].map(x=>x.id));state={daily:[],fixed:[],bankOpeningBalance:0,bankOpeningDate:today(),distributions:[],adjustments:[],deleted,settingsUpdatedAt:state.settingsUpdatedAt||'',storeSettings:state.storeSettings||{storeName:'室後菸',openingDate:'2026-04-01',shareholderRate:90,reserveRate:10,businessHours:'21:00–03:00'}};save()}}
+clearData.onclick=()=>{if(confirm('確定清除全部資料？此動作無法復原。')){const deleted={};['daily','fixed','distributions','adjustments'].forEach(k=>deleted[k]=state[k].map(x=>x.id));state={daily:[],fixed:[],bankOpeningBalance:0,bankOpeningDate:today(),distributions:[],adjustments:[],deleted,storeSettings:{storeName:'室後菸',openingDate:'2026-04-01',shareholderRate:90,reserveRate:10,businessHours:'21:00–03:00'}};save()}}
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 renderAll();
 if(!navigator.onLine){
