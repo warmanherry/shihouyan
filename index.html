@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#171717" />
-  <title>室後菸｜店務管理 V1.1.2.3</title>
+  <title>室後菸｜店務管理 V1.1.3</title>
   <link rel="manifest" href="manifest.json">
   <style>
     :root{
@@ -56,6 +56,11 @@
     #dashboard .value.dashboard-negative{color:var(--danger)}
     .notice{color:var(--muted);font-size:13px;line-height:1.6}
     .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+    .list-tools{display:grid;grid-template-columns:minmax(180px,1fr) minmax(150px,220px) auto;gap:8px;align-items:end;margin:10px 0}
+    .list-tools .compact{min-width:110px}.list-summary{color:var(--muted);font-size:13px;margin:8px 0}
+    .pager{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px}
+    .pager-info{color:var(--muted);font-size:13px}.pager-actions{display:flex;gap:8px}.pager .btn{padding:9px 13px}
+    .pager .btn:disabled{opacity:.4;cursor:not-allowed}
     .info-box{background:#2a2418;border:1px solid #6d5830;border-radius:12px;padding:12px 14px;color:#ead7ae;font-size:14px;line-height:1.6;margin:12px 0}
     .warning-box{background:#321f1f;border:1px solid #704040;border-radius:12px;padding:12px 14px;color:#ffc4c4;font-size:14px;line-height:1.6;margin-top:12px}
     .quick-templates{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
@@ -69,6 +74,7 @@
       .form-grid{grid-template-columns:1fr}
       main{padding:12px}
       .fixed-cards{grid-template-columns:1fr}
+      .list-tools{grid-template-columns:1fr}
       header{padding:10px 12px}.header-title .sub{display:none}.sync-pill{padding:7px 10px}.sync-label{font-size:12px}
     }
   </style>
@@ -77,7 +83,7 @@
 <header>
   <div class="header-title">
     <h1>室後菸｜店務管理</h1>
-    <div class="sub">V1.1.2.3｜多人同步、店家設定回填與雲端寫入確認。</div>
+    <div class="sub">V1.1.3｜多人同步穩定版＋分類、搜尋與分頁。</div>
   </div>
   <div class="sync-control" id="syncControl">
     <button class="sync-pill" id="syncPill" data-state="syncing" type="button" aria-expanded="false" aria-controls="syncPanel">
@@ -91,7 +97,7 @@
         <dt>網路</dt><dd id="syncDetailNetwork">檢查中</dd>
         <dt>待同步</dt><dd id="syncDetailPending">0 筆變更</dd>
         <dt>最後成功</dt><dd id="syncDetailTime">尚無</dd>
-        <dt>版本</dt><dd>V1.1.2.3</dd>
+        <dt>版本</dt><dd>V1.1.3</dd>
       </dl>
       <div class="sync-error" id="syncDetailError" hidden></div>
       <div class="actions"><button class="btn secondary" id="syncClose" type="button">關閉</button><button class="btn" id="syncRetry" type="button">立即同步</button></div>
@@ -132,14 +138,17 @@
       <div><label>日期</label><input id="dailyDate" type="date"></div>
       <div><label>收入金額</label><input id="dailyIncome" type="number" min="0" step="1" placeholder="例如 12000"></div>
       <div><label>支出金額</label><input id="dailyExpense" type="number" min="0" step="1" placeholder="例如 2500"></div>
-      <div><label>支出項目</label><input id="dailyCategory" placeholder="例如：進貨、員工製菸報酬、水電"></div>
+      <div><label>支出項目</label><select id="dailyCategory"><option value="">沒有支出／請選擇</option><option>員工製菸報酬</option><option>員工薪資</option><option>水煙耗材</option><option>酒水飲料</option><option>水電</option><option>進貨</option><option>設備</option><option>雜支</option><option>其他</option></select></div>
       <div style="grid-column:1/-1"><label>備註</label><textarea id="dailyNote" placeholder="自由輸入"></textarea></div>
     </div>
     <div class="actions"><button class="btn" id="addDaily">儲存每日記帳</button></div><div id="dailySaveStatus" class="notice" style="display:none;margin-top:10px"></div>
   </div>
   <div class="card" style="margin-top:12px">
-    <h3>最近記錄</h3>
+    <h3>每日記帳明細</h3>
+    <div class="list-tools"><div><label>搜尋日期、項目或備註</label><input id="dailySearch" type="search" placeholder="輸入關鍵字"></div><div><label>支出分類</label><select id="dailyCategoryFilter"><option value="">全部分類</option></select></div><div class="compact"><label>每頁顯示</label><select id="dailyPageSize"><option>10</option><option selected>25</option><option>50</option></select></div></div>
+    <div id="dailyListSummary" class="list-summary"></div>
     <div class="scroll"><table id="dailyTable"></table></div>
+    <div id="dailyPager" class="pager"></div>
   </div>
 </section>
 
@@ -189,14 +198,17 @@
           <option value="other">其他分潤</option>
         </select>
       </div>
-      <div><label>收款人／說明</label><input id="distributionRecipient" placeholder="例如：全體股東、王先生"></div>
+      <div><label>收款人／說明</label><input id="distributionRecipient" list="distributionRecipients" placeholder="選擇股東或自行輸入"><datalist id="distributionRecipients"><option value="股東 A"><option value="股東 B"><option value="股東 C"><option value="其他"></datalist></div>
       <div style="grid-column:1/-1"><label>備註</label><textarea id="distributionNote"></textarea></div>
     </div>
     <button class="btn" id="addDistribution">新增分潤發放</button>
   </div>
   <div class="card" style="margin-top:12px">
     <h2>分潤發放紀錄</h2>
+    <div class="list-tools"><div><label>搜尋收款人、日期或備註</label><input id="distributionSearch" type="search" placeholder="例如：股東 A"></div><div><label>收款人</label><select id="distributionRecipientFilter"><option value="">全部收款人</option></select></div><div class="compact"><label>每頁顯示</label><select id="distributionPageSize"><option>10</option><option selected>25</option><option>50</option></select></div></div>
+    <div id="distributionListSummary" class="list-summary"></div>
     <div class="scroll"><table id="distributionTable"></table></div>
+    <div id="distributionPager" class="pager"></div>
   </div>
 </section>
 
@@ -222,7 +234,9 @@
       <div><label>備註</label><input id="adjustmentNote"></div>
     </div>
     <button class="btn" id="addAdjustment">新增銀行調整</button>
+    <div class="list-tools" style="margin-top:14px"><div><label>搜尋銀行調整</label><input id="adjustmentSearch" type="search" placeholder="搜尋日期、項目或備註"></div><div></div><div class="compact"><label>每頁顯示</label><select id="adjustmentPageSize"><option>10</option><option selected>25</option><option>50</option></select></div></div>
     <div class="scroll" style="margin-top:12px"><table id="adjustmentTable"></table></div>
+    <div id="adjustmentPager" class="pager"></div>
   </div>
 
   <div class="card" style="margin-top:12px">
@@ -324,7 +338,8 @@
 const STORE_KEY='shihouyan_cloud_cache_v1';
 const OLD_STORE_KEY='shihouyan_store_v4_1';
 const SYNC_META_KEY='shihouyan_sync_meta_v1_1_2';
-const APP_VERSION='V1.1.2.3';
+const APP_VERSION='V1.1.3';
+const listView={daily:{page:1,size:25},distributions:{page:1,size:25},adjustments:{page:1,size:25}};
 const DEFAULT_STATE={daily:[],fixed:[],bankOpeningBalance:0,bankOpeningDate:today(),distributions:[],adjustments:[],deleted:{daily:[],fixed:[],distributions:[],adjustments:[]},settingsUpdatedAt:'',storeSettings:{storeName:'室後菸',openingDate:'2026-04-01',shareholderRate:90,reserveRate:10,businessHours:'21:00–03:00'}};
 const CLOUD_CONFIG=window.SHISHOUYAN_CONFIG||{};
 // V1.1.2 使用共用存取模式。認證與權限透過此介面隔離，
@@ -663,10 +678,35 @@ function distributionTypeText(t){
   return t==='shareholder'?'股東分潤':t==='employee'?'員工分潤':'其他分潤';
 }
 
+function uniqueText(values){return [...new Set(values.map(v=>(v||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh-Hant'))}
+function fillFilter(id,values,allLabel){
+  const node=el(id); if(!node) return;
+  const current=node.value;
+  node.innerHTML=`<option value="">${allLabel}</option>`+uniqueText(values).map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
+  if([...node.options].some(o=>o.value===current)) node.value=current;
+}
+function pageRows(rows,key){
+  const view=listView[key], pages=Math.max(1,Math.ceil(rows.length/view.size));
+  view.page=Math.min(Math.max(1,view.page),pages);
+  const start=(view.page-1)*view.size;
+  return {items:rows.slice(start,start+view.size),page:view.page,pages,total:rows.length,start};
+}
+function renderPager(id,key,result){
+  const node=el(id); if(!node) return;
+  const from=result.total?result.start+1:0, to=Math.min(result.start+listView[key].size,result.total);
+  node.innerHTML=`<span class="pager-info">第 ${result.page}／${result.pages} 頁・顯示 ${from}–${to} 筆・共 ${result.total} 筆</span><span class="pager-actions"><button class="btn secondary" ${result.page<=1?'disabled':''} onclick="changePage('${key}',-1)">上一頁</button><button class="btn secondary" ${result.page>=result.pages?'disabled':''} onclick="changePage('${key}',1)">下一頁</button></span>`;
+}
+window.changePage=(key,delta)=>{listView[key].page+=delta; key==='daily'?renderDaily():key==='distributions'?renderDistributions():renderBank()}
+
 function renderDistributions(){
-  const rows=[...state.distributions].sort((a,b)=>b.date.localeCompare(a.date));
+  fillFilter('distributionRecipientFilter',state.distributions.map(x=>x.recipient),'全部收款人');
+  const query=(el('distributionSearch')?.value||'').trim().toLowerCase(), recipient=el('distributionRecipientFilter')?.value||'';
+  const filtered=[...state.distributions].filter(x=>(!recipient||x.recipient===recipient)&&(!query||[x.date,x.recipient,x.note,distributionTypeText(x.type)].some(v=>String(v||'').toLowerCase().includes(query)))).sort((a,b)=>b.date.localeCompare(a.date));
+  const result=pageRows(filtered,'distributions'), rows=result.items;
   el('distributionTable').innerHTML=`<tr><th>日期</th><th>類型</th><th>收款人／說明</th><th>金額</th><th>備註</th><th></th></tr>`+
-    rows.map(x=>`<tr><td>${x.date}</td><td>${distributionTypeText(x.type)}</td><td>${esc(x.recipient)}</td><td>${money(x.amount)}</td><td>${esc(x.note)}</td><td><button class="btn danger" onclick="delDistribution('${x.id}')">刪除</button></td></tr>`).join('');
+    (rows.length?rows.map(x=>`<tr><td>${x.date}</td><td>${distributionTypeText(x.type)}</td><td>${esc(x.recipient)}</td><td>${money(x.amount)}</td><td>${esc(x.note)}</td><td><button class="btn danger" onclick="delDistribution('${x.id}')">刪除</button></td></tr>`).join(''):`<tr><td colspan="6" class="notice">沒有符合條件的分潤紀錄</td></tr>`);
+  el('distributionListSummary').textContent=`目前篩選合計：${money(filtered.reduce((sum,x)=>sum+(+x.amount||0),0))}`;
+  renderPager('distributionPager','distributions',result);
 }
 
 function bankOpeningIssues(date){
@@ -695,9 +735,12 @@ function renderBank(){
   el('bankOpeningDate').value=state.bankOpeningDate||today();
   el('bankOpeningBalance').value=state.bankOpeningBalance||0;
   renderBankOpeningWarning();
-  const rows=[...state.adjustments].sort((a,b)=>b.date.localeCompare(a.date));
+  const aq=(el('adjustmentSearch')?.value||'').trim().toLowerCase();
+  const filteredAdjustments=[...state.adjustments].filter(x=>!aq||[x.date,x.category,x.note,x.amount].some(v=>String(v||'').toLowerCase().includes(aq))).sort((a,b)=>b.date.localeCompare(a.date));
+  const adjustmentResult=pageRows(filteredAdjustments,'adjustments'), rows=adjustmentResult.items;
   el('adjustmentTable').innerHTML=`<tr><th>日期</th><th>項目</th><th>金額</th><th>備註</th><th></th></tr>`+
-    rows.map(x=>`<tr><td>${x.date}</td><td>${esc(x.category)}</td><td class="${(+x.amount||0)>=0?'positive':'negative'}">${money(x.amount)}</td><td>${esc(x.note)}</td><td><button class="btn danger" onclick="delAdjustment('${x.id}')">刪除</button></td></tr>`).join('');
+    (rows.length?rows.map(x=>`<tr><td>${x.date}</td><td>${esc(x.category)}</td><td class="${(+x.amount||0)>=0?'positive':'negative'}">${money(x.amount)}</td><td>${esc(x.note)}</td><td><button class="btn danger" onclick="delAdjustment('${x.id}')">刪除</button></td></tr>`).join(''):`<tr><td colspan="5" class="notice">沒有符合條件的銀行調整</td></tr>`);
+  renderPager('adjustmentPager','adjustments',adjustmentResult);
   const r=bankReconciliation();
   el('bankReconciliationTable').innerHTML=`
     <tr><th>項目</th><th>金額</th></tr>
@@ -728,9 +771,14 @@ function setDashboardMoney(id,value){
   node.className=`value ${amount<0?'dashboard-negative':'dashboard-positive'}`;
 }
 function renderDaily(){
-  const rows=[...state.daily].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,100);
+  fillFilter('dailyCategoryFilter',state.daily.map(x=>x.category),'全部分類');
+  const query=(el('dailySearch')?.value||'').trim().toLowerCase(), category=el('dailyCategoryFilter')?.value||'';
+  const filtered=[...state.daily].filter(x=>(!category||x.category===category)&&(!query||[x.date,x.category,x.note,x.income,x.expense].some(v=>String(v||'').toLowerCase().includes(query)))).sort((a,b)=>b.date.localeCompare(a.date));
+  const result=pageRows(filtered,'daily'), rows=result.items;
   el('dailyTable').innerHTML=`<tr><th>日期</th><th>收入</th><th>支出</th><th>項目</th><th>備註</th><th></th></tr>`+
     (rows.length?rows.map(x=>`<tr><td>${x.date}</td><td>${money(x.income)}</td><td>${money(x.expense)}</td><td>${esc(x.category)}</td><td>${esc(x.note)}</td><td><button class="btn danger" onclick="delDaily('${x.id}')">刪除</button></td></tr>`).join(''):`<tr><td colspan="6" class="notice">目前尚無每日記帳紀錄</td></tr>`);
+  el('dailyListSummary').textContent=`篩選結果：${filtered.length} 筆｜收入 ${money(filtered.reduce((s,x)=>s+(+x.income||0),0))}｜支出 ${money(filtered.reduce((s,x)=>s+(+x.expense||0),0))}`;
+  renderPager('dailyPager','daily',result);
 }
 function renderFixed(){
   const box=el('fixedCards');
@@ -892,12 +940,22 @@ document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#nav button').forEach(x=>x.classList.toggle('active',x===b));
   document.querySelectorAll('main section').forEach(s=>s.classList.toggle('active',s.id===b.dataset.tab));
 });
+function bindListControls(){
+  const configs=[
+    ['dailySearch','daily','daily',renderDaily],['dailyCategoryFilter','daily','daily',renderDaily],['dailyPageSize','daily','daily',renderDaily],
+    ['distributionSearch','distributions','distributions',renderDistributions],['distributionRecipientFilter','distributions','distributions',renderDistributions],['distributionPageSize','distributions','distributions',renderDistributions],
+    ['adjustmentSearch','adjustments','adjustments',renderBank],['adjustmentPageSize','adjustments','adjustments',renderBank]
+  ];
+  configs.forEach(([id,key,,render])=>{const node=el(id);if(!node)return;node.addEventListener(id.includes('Search')?'input':'change',()=>{listView[key].page=1;if(id.endsWith('PageSize')) listView[key].size=+node.value||25;render()})});
+}
+bindListControls();
 el('dailyDate').value=today(); el('fixedStart').value=today(); el('distributionDate').value=today(); el('adjustmentDate').value=today(); el('bankOpeningDate').value=state.bankOpeningDate||today();
 
 el('addDaily').onclick=()=>{
   const date=el('dailyDate').value, income=+el('dailyIncome').value||0, expense=+el('dailyExpense').value||0;
   if(!date){alert('請選擇日期');return}
   if(income===0 && expense===0){alert('收入或支出至少輸入一項');return}
+  if(expense>0 && !el('dailyCategory').value){alert('有支出金額時，請選擇支出項目');return}
   state.daily.push({id:(crypto.randomUUID?crypto.randomUUID():String(Date.now())),date,income,expense,category:el('dailyCategory').value.trim(),note:el('dailyNote').value.trim()});
   el('dailyIncome').value='';el('dailyExpense').value='';el('dailyCategory').value='';el('dailyNote').value='';
   save();
