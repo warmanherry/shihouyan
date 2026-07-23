@@ -1,4 +1,4 @@
-const CACHE='shishouyan-google-sheets-v1-2-beta-auth-r3';
+const CACHE='shishouyan-google-sheets-v1-2-beta-auth-r4';
 const FILES=['./','./index.html','./config.js','./manifest.json'];
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(FILES)));

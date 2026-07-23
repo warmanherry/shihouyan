@@ -408,6 +408,7 @@ let state=loadState();
 let cloudSaveTimer=null;
 let cloudSaving=false;
 let cloudSyncRequested=false;
+let cloudSavingStartedAt=0;
 let syncMeta=loadSyncMeta();
 
 function loadSyncMeta(){
@@ -548,7 +549,7 @@ function applyWritePermissions(){
 }
 async function submitOperation(action,fields={}){
   const requestId=crypto.randomUUID();await submitCloudForm(Object.assign({action,session:auth.session,requestId},fields));
-  for(let i=0;i<12;i++){await new Promise(r=>setTimeout(r,i?500:300));try{const result=await jsonpRequest({action:'operationStatus',session:auth.session,requestId},10000);return result}catch(error){if(!String(error.message).includes('處理中'))throw error}}
+  for(let i=0;i<30;i++){await new Promise(r=>setTimeout(r,i?800:400));try{const result=await jsonpRequest({action:'operationStatus',session:auth.session,requestId},10000);return result}catch(error){if(!String(error.message).includes('處理中'))throw error}}
   throw new Error('操作確認逾時');
 }
 async function loadUsers(){if(!hasPermission('admin'))return;const result=await jsonpRequest({action:'listUsers',session:auth.session});renderUsers(result.users||[])}
@@ -618,32 +619,35 @@ function submitCloudForm(payload){
 
 async function saveCloudState(){
   if(!cloudReady()) return false;
-  if(cloudSaving){cloudSyncRequested=true;return false}
+  if(cloudSaving){
+    if(cloudSavingStartedAt&&Date.now()-cloudSavingStartedAt>45000){
+      cloudSaving=false;cloudSyncRequested=false;cloudSavingStartedAt=0;
+    }else{
+      cloudSyncRequested=true;return false;
+    }
+  }
   if(!navigator.onLine){updateSyncUI('pending',`目前離線，${syncMeta.pending||0} 筆變更已保留。`);return false}
   cloudSaving=true;
+  cloudSavingStartedAt=Date.now();
   let syncSucceeded=false;
   const sentRevision=syncMeta.revision||0;
   const sentSnapshot=normalizeState(JSON.parse(JSON.stringify(state)));
   updateSyncUI('syncing','正在同步到 Google Sheets…');
   try{
-    await submitCloudForm({
-      action:'save',
-      session:auth.session,
-      payload:JSON.stringify(state)
-    });
-    updateSyncUI('syncing','已送出，正在確認 Google Sheets 資料…');
+    await submitOperation('save',{payload:JSON.stringify(sentSnapshot)});
+    updateSyncUI('syncing','Google Sheets 已完成寫入，正在讀取合併結果…');
     let confirmed=false;
-    for(let attempt=0;attempt<20;attempt++){
-      await new Promise(resolve=>setTimeout(resolve,attempt===0?900:1200));
+    for(let attempt=0;attempt<4;attempt++){
+      await new Promise(resolve=>setTimeout(resolve,attempt===0?300:900));
       const response=await loadCloudState(false,{verifySnapshot:sentSnapshot});
       if(response.confirmed){
         applyConfirmedCloudState(response.state,sentRevision);
         confirmed=true;
         break;
       }
-      updateSyncUI('syncing',`已送出，等待 Google Sheets 寫入完成…（${attempt+1}/20）`);
+      updateSyncUI('syncing',`寫入已完成，正在確認合併資料…（${attempt+1}/4）`);
     }
-    if(!confirmed) throw new Error('Google Sheets 尚未確認收到這筆資料');
+    if(!confirmed) throw new Error('Google Sheets 已完成寫入，但尚未能確認合併結果，請按立即同步重試');
     syncSucceeded=true;
     return true;
   }catch(error){
@@ -654,6 +658,7 @@ async function saveCloudState(){
     return false;
   }finally{
     cloudSaving=false;
+    cloudSavingStartedAt=0;
     if((cloudSyncRequested||(syncSucceeded&&syncMeta.pending>0)) && navigator.onLine){
       cloudSyncRequested=false;
       clearTimeout(cloudSaveTimer);
@@ -1261,6 +1266,7 @@ syncPill.onclick=()=>{
 syncClose.onclick=()=>{syncPanel.classList.remove('open');syncPill.setAttribute('aria-expanded','false')};
 syncRetry.onclick=()=>{
   if(syncMeta.pending===0){syncMeta.pending=1;syncMeta.revision=(syncMeta.revision||0)+1;syncMeta.pendingOwner=currentUser().username;persistSyncMeta()}
+  if(cloudSaving&&cloudSavingStartedAt&&Date.now()-cloudSavingStartedAt>45000){cloudSaving=false;cloudSyncRequested=false;cloudSavingStartedAt=0}
   saveCloudState();
 };
 document.addEventListener('click',event=>{
