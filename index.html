@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#171717" />
-  <title>室後菸｜店務管理 V1.1.3</title>
+  <title>室後菸｜店務管理 V1.2 Beta</title>
   <link rel="manifest" href="manifest.json">
   <style>
     :root{
@@ -69,23 +69,42 @@
     .fixed-item-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
     .fixed-item-title{font-weight:800;font-size:17px}
     .fixed-item-meta{color:var(--muted);font-size:13px;line-height:1.7;margin-top:8px}
+    body.auth-locked>header,body.auth-locked>nav,body.auth-locked>main{display:none}
+    .login-screen{min-height:100vh;display:none;place-items:center;padding:20px;background:radial-gradient(circle at 50% 20%,#29241b 0,#111 48%)}
+    body.auth-locked .login-screen{display:grid}.login-card{width:min(440px,100%);background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:26px;box-shadow:0 24px 70px rgba(0,0,0,.45)}
+    .account-dialog{position:fixed;inset:0;z-index:1190;display:none;place-items:center;padding:18px;background:rgba(0,0,0,.72)}.account-dialog.open{display:grid}.account-card{width:min(440px,100%);background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:24px;box-shadow:0 24px 70px rgba(0,0,0,.5)}
+    .login-card h1{font-size:28px;margin-bottom:8px}.login-card .brand{color:var(--gold);font-weight:800;margin-bottom:22px}.login-error{color:#ffadad;font-size:13px;min-height:20px;margin-top:10px}
+    .header-actions{display:flex;align-items:center;gap:8px}.user-chip{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:999px;padding:7px 10px;background:var(--panel2);font-size:12px}.user-role{color:var(--muted)}
+    .role-note{display:inline-flex;padding:4px 8px;border-radius:999px;background:#302816;color:#ead7ae;font-size:12px}.permission-hidden{display:none!important}
+    .user-table td:first-child,.audit-table td:first-child{text-align:left}
     @media(max-width:760px){
       .grid{grid-template-columns:repeat(2,1fr)}
       .form-grid{grid-template-columns:1fr}
       main{padding:12px}
       .fixed-cards{grid-template-columns:1fr}
       .list-tools{grid-template-columns:1fr}
-      header{padding:10px 12px}.header-title .sub{display:none}.sync-pill{padding:7px 10px}.sync-label{font-size:12px}
+      header{padding:10px 12px}.header-title .sub{display:none}.sync-pill{padding:7px 10px}.sync-label{font-size:12px}.user-chip .user-role{display:none}.header-actions{gap:5px}
     }
   </style>
 </head>
-<body>
+<body class="auth-locked">
+<div class="login-screen" id="loginScreen">
+  <div class="login-card">
+    <div class="brand">室後菸｜店務管理</div>
+    <h1>登入 V1.2 Beta</h1>
+    <p class="notice">請使用自己的帳號登入。重要操作會留下使用者紀錄。</p>
+    <div style="margin-top:18px"><label>帳號</label><input id="loginUsername" autocomplete="username" autocapitalize="none"></div>
+    <div style="margin-top:12px"><label>密碼</label><input id="loginPassword" type="password" autocomplete="current-password"></div>
+    <button class="btn" id="loginButton" style="width:100%;margin-top:18px">登入</button>
+    <div class="login-error" id="loginError"></div>
+  </div>
+</div>
 <header>
   <div class="header-title">
     <h1>室後菸｜店務管理</h1>
-    <div class="sub">V1.1.3｜多人同步穩定版＋分類、搜尋與分頁。</div>
+    <div class="sub">V1.2 Beta｜個人帳號、角色權限與操作紀錄測試版。</div>
   </div>
-  <div class="sync-control" id="syncControl">
+  <div class="header-actions"><div class="user-chip"><span id="currentUserName">—</span><span class="user-role" id="currentUserRole">—</span><button class="btn secondary" id="changePasswordButton" style="padding:6px 9px">改密碼</button><button class="btn secondary" id="logoutButton" style="padding:6px 9px">登出</button></div><div class="sync-control" id="syncControl">
     <button class="sync-pill" id="syncPill" data-state="syncing" type="button" aria-expanded="false" aria-controls="syncPanel">
       <span class="sync-dot" aria-hidden="true"></span>
       <span><span class="sync-label" id="syncLabel">準備同步</span><span class="sync-time" id="syncTime">尚未同步</span></span>
@@ -97,13 +116,24 @@
         <dt>網路</dt><dd id="syncDetailNetwork">檢查中</dd>
         <dt>待同步</dt><dd id="syncDetailPending">0 筆變更</dd>
         <dt>最後成功</dt><dd id="syncDetailTime">尚無</dd>
-        <dt>版本</dt><dd>V1.1.3</dd>
+        <dt>版本</dt><dd>V1.2 Beta</dd>
       </dl>
       <div class="sync-error" id="syncDetailError" hidden></div>
       <div class="actions"><button class="btn secondary" id="syncClose" type="button">關閉</button><button class="btn" id="syncRetry" type="button">立即同步</button></div>
     </div>
-  </div>
+  </div></div>
 </header>
+<div class="account-dialog" id="passwordDialog" role="dialog" aria-modal="true" aria-labelledby="passwordDialogTitle">
+  <div class="account-card">
+    <h2 id="passwordDialogTitle">修改自己的密碼</h2>
+    <p class="notice">修改後，其他手機與電腦會被登出。新密碼至少 8 碼。</p>
+    <div style="margin-top:14px"><label>目前密碼</label><input id="currentPasswordInput" type="password" autocomplete="current-password"></div>
+    <div style="margin-top:12px"><label>新密碼</label><input id="newOwnPasswordInput" type="password" autocomplete="new-password"></div>
+    <div style="margin-top:12px"><label>再次輸入新密碼</label><input id="confirmOwnPasswordInput" type="password" autocomplete="new-password"></div>
+    <div id="passwordActionStatus" class="login-error"></div>
+    <div class="actions"><button class="btn secondary" id="cancelPasswordButton">取消</button><button class="btn" id="savePasswordButton">儲存新密碼</button></div>
+  </div>
+</div>
 <nav id="nav">
   <button data-tab="dashboard" class="active">首頁</button>
   <button data-tab="daily">每日記帳</button>
@@ -138,7 +168,7 @@
       <div><label>日期</label><input id="dailyDate" type="date"></div>
       <div><label>收入金額</label><input id="dailyIncome" type="number" min="0" step="1" placeholder="例如 12000"></div>
       <div><label>支出金額</label><input id="dailyExpense" type="number" min="0" step="1" placeholder="例如 2500"></div>
-      <div><label>支出項目</label><select id="dailyCategory"><option value="">沒有支出／請選擇</option><option>員工製菸報酬</option><option>員工薪資</option><option>水煙耗材</option><option>酒水飲料</option><option>水電</option><option>進貨</option><option>設備</option><option>雜支</option><option>其他</option></select></div>
+      <div><label>支出項目</label><select id="dailyCategory"><option value="">沒有支出／請選擇</option><option>員工製菸報酬</option><option>員工薪資</option><option>水煙耗材</option><option>酒水飲料</option><option>水電</option><option>水煙菸草進貨</option><option>設備</option><option>雜支</option><option>其他</option></select></div>
       <div style="grid-column:1/-1"><label>備註</label><textarea id="dailyNote" placeholder="自由輸入"></textarea></div>
     </div>
     <div class="actions"><button class="btn" id="addDaily">儲存每日記帳</button></div><div id="dailySaveStatus" class="notice" style="display:none;margin-top:10px"></div>
@@ -318,7 +348,27 @@
       <button class="btn" id="reloadCloud">重新讀取雲端資料</button>
       <button class="btn secondary" id="uploadCloud">立即同步目前變更</button>
     </div>
-    <p class="notice">Apps Script 網址與存取密碼請填在 <code>config.js</code>。網頁會保留本機快取，但 Google Sheets 才是多人共用的主要資料。</p>
+    <p class="notice">Apps Script 網址請填在 <code>config.js</code>。V1.2改用個人登入憑證，不再使用前端共用密碼。</p>
+  </div>
+
+  <div class="card admin-only" style="margin-top:12px" id="userManagementCard">
+    <h2>使用者與角色</h2>
+    <p class="notice">只有系統管理員可以新增或停用帳號。密碼至少8碼；正式V2.0會再改成Supabase帳號系統。</p>
+    <div class="form-grid">
+      <div><label>登入帳號</label><input id="newUsername" autocapitalize="none" placeholder="例如 partner-a"></div>
+      <div><label>顯示名稱</label><input id="newDisplayName" placeholder="例如 股東 A"></div>
+      <div><label>角色</label><select id="newUserRole"><option value="operator">營運管理者</option><option value="shareholder">股東</option><option value="employee">員工</option><option value="admin">系統管理員</option></select></div>
+      <div><label>初始密碼</label><input id="newUserPassword" type="password" autocomplete="new-password"></div>
+    </div>
+    <div class="actions"><button class="btn" id="createUserButton">新增帳號</button><button class="btn secondary" id="refreshUsersButton">重新整理</button></div>
+    <div id="userActionStatus" class="notice" style="margin-top:8px"></div>
+    <div class="scroll"><table id="usersTable" class="user-table"></table></div>
+  </div>
+
+  <div class="card audit-visible" style="margin-top:12px" id="auditCard">
+    <h2>最近操作紀錄</h2>
+    <div class="actions"><button class="btn secondary" id="refreshAuditButton">重新整理操作紀錄</button></div>
+    <div class="scroll"><table id="auditTable" class="audit-table"></table></div>
   </div>
 
   <div class="card" style="margin-top:12px">
@@ -338,15 +388,22 @@
 const STORE_KEY='shihouyan_cloud_cache_v1';
 const OLD_STORE_KEY='shihouyan_store_v4_1';
 const SYNC_META_KEY='shihouyan_sync_meta_v1_1_2';
-const APP_VERSION='V1.1.3';
+const AUTH_KEY='shihouyan_auth_v1_2';
+const APP_VERSION='V1.2 Beta';
 const listView={daily:{page:1,size:25},distributions:{page:1,size:25},adjustments:{page:1,size:25}};
-const DEFAULT_STATE={daily:[],fixed:[],bankOpeningBalance:0,bankOpeningDate:today(),distributions:[],adjustments:[],deleted:{daily:[],fixed:[],distributions:[],adjustments:[]},settingsUpdatedAt:'',storeSettings:{storeName:'室後菸',openingDate:'2026-04-01',shareholderRate:90,reserveRate:10,businessHours:'21:00–03:00'}};
+const DEFAULT_STATE={daily:[],fixed:[],bankOpeningBalance:0,bankOpeningDate:today(),bankUpdatedAt:'',distributions:[],adjustments:[],deleted:{daily:[],fixed:[],distributions:[],adjustments:[]},settingsUpdatedAt:'',storeSettings:{storeName:'室後菸',openingDate:'2026-04-01',shareholderRate:90,reserveRate:10,businessHours:'21:00–03:00'}};
 const CLOUD_CONFIG=window.SHISHOUYAN_CONFIG||{};
-// V1.1.2 使用共用存取模式。認證與權限透過此介面隔離，
-// 後續可換成個人帳號，而不需改寫同步、報表與離線佇列。
-const AUTH_CONTEXT={mode:'shared',userId:'shared-user',roles:['legacy-shared-editor']};
-function currentUser(){return AUTH_CONTEXT}
-function hasPermission(){return true}
+let auth=loadAuth();
+const ROLE_LABELS={admin:'系統管理員',operator:'營運管理者',shareholder:'股東',employee:'員工'};
+const ROLE_TABS={admin:['dashboard','daily','fixed','distributions','bank','monthly','quarterly','yearly','settings'],operator:['dashboard','daily','fixed','distributions','bank','monthly','quarterly','yearly','settings'],shareholder:['dashboard','distributions','bank','monthly','quarterly','yearly'],employee:['daily']};
+function loadAuth(){try{return JSON.parse(localStorage.getItem(AUTH_KEY)||'null')||{session:'',user:null,expiresAt:''}}catch{return {session:'',user:null,expiresAt:''}}}
+function persistAuth(){localStorage.setItem(AUTH_KEY,JSON.stringify(auth))}
+function currentUser(){return auth.user||{username:'',displayName:'',role:''}}
+function hasPermission(name){
+  const role=currentUser().role;
+  const map={write:['admin','operator','employee'],manage:['admin','operator'],admin:['admin'],audit:['admin','operator'],viewFinance:['admin','operator','shareholder']};
+  return (map[name]||[]).includes(role);
+}
 let state=loadState();
 let cloudSaveTimer=null;
 let cloudSaving=false;
@@ -355,8 +412,8 @@ let syncMeta=loadSyncMeta();
 
 function loadSyncMeta(){
   try{
-    return Object.assign({pending:0,lastSyncedAt:'',lastError:'',revision:0},JSON.parse(localStorage.getItem(SYNC_META_KEY)||'{}'));
-  }catch{return {pending:0,lastSyncedAt:'',lastError:'',revision:0}}
+    return Object.assign({pending:0,lastSyncedAt:'',lastError:'',revision:0,pendingOwner:''},JSON.parse(localStorage.getItem(SYNC_META_KEY)||'{}'));
+  }catch{return {pending:0,lastSyncedAt:'',lastError:'',revision:0,pendingOwner:''}}
 }
 
 function persistSyncMeta(){localStorage.setItem(SYNC_META_KEY,JSON.stringify(syncMeta))}
@@ -387,6 +444,7 @@ function updateSyncUI(status,message,error=''){
 function markPending(){
   syncMeta.pending=(syncMeta.pending||0)+1;
   syncMeta.revision=(syncMeta.revision||0)+1;
+  syncMeta.pendingOwner=currentUser().username||syncMeta.pendingOwner||'';
   syncMeta.lastError='';
   persistSyncMeta();
   updateSyncUI('pending',navigator.onLine?`已儲存在本機，有 ${syncMeta.pending} 筆變更等待同步。`:`目前離線，${syncMeta.pending} 筆變更已安全保留在本機。`);
@@ -395,6 +453,8 @@ function markPending(){
 function normalizeState(data){
   const s=(data&&typeof data==='object')?data:{};
   if(!Array.isArray(s.daily)) s.daily=[];
+  // 舊版「進貨」自動併入新版分類，歷史資料與分類統計不會被拆成兩組。
+  s.daily.forEach(row=>{if(row&&row.category==='進貨')row.category='水煙菸草進貨'});
   if(!Array.isArray(s.fixed)) s.fixed=[];
   if(!Array.isArray(s.distributions)) s.distributions=[];
   if(!Array.isArray(s.adjustments)) s.adjustments=[];
@@ -402,6 +462,7 @@ function normalizeState(data){
   ['daily','fixed','distributions','adjustments'].forEach(key=>{if(!Array.isArray(s.deleted[key])) s.deleted[key]=[]});
   if(typeof s.bankOpeningBalance!=='number') s.bankOpeningBalance=Number(s.bankOpeningBalance||0);
   if(!s.bankOpeningDate) s.bankOpeningDate=today();
+  if(typeof s.bankUpdatedAt!=='string') s.bankUpdatedAt='';
   if(!s.storeSettings) s.storeSettings={};
   if(typeof s.settingsUpdatedAt!=='string') s.settingsUpdatedAt='';
   if(!s.storeSettings.storeName) s.storeSettings.storeName='室後菸';
@@ -428,9 +489,77 @@ function setCloudStatus(message,isError=false){
   node.style.color=isError?'#ff9c9c':'';
 }
 
+function jsonpRequest(params,timeoutMs=30000){
+  return new Promise((resolve,reject)=>{
+    if(!CLOUD_CONFIG.scriptUrl||CLOUD_CONFIG.scriptUrl.includes('請貼上')){reject(new Error('尚未設定 Apps Script 網址'));return}
+    const callback='shishouyanAuthCallback_'+Date.now()+'_'+Math.random().toString(36).slice(2),script=document.createElement('script');
+    const timer=setTimeout(()=>{delete window[callback];script.remove();reject(new Error('連線逾時'))},timeoutMs);
+    window[callback]=response=>{clearTimeout(timer);delete window[callback];script.remove();response&&response.ok?resolve(response):reject(new Error(response&&response.error?response.error:'操作失敗'))};
+    const url=new URL(CLOUD_CONFIG.scriptUrl);Object.entries(Object.assign({},params,{callback,_:Date.now()})).forEach(([k,v])=>url.searchParams.set(k,v));script.src=url.toString();
+    script.onerror=()=>{clearTimeout(timer);delete window[callback];script.remove();reject(new Error('無法連線 Google Apps Script'))};document.body.appendChild(script);
+  });
+}
+
+async function sha256(text){const bytes=new TextEncoder().encode(String(text));const hash=await crypto.subtle.digest('SHA-256',bytes);return [...new Uint8Array(hash)].map(b=>b.toString(16).padStart(2,'0')).join('')}
+async function login(username,password){
+  const challenge=await jsonpRequest({action:'challenge',username});
+  const passwordHash=await sha256(String(password)+challenge.salt),proof=await sha256(passwordHash+challenge.nonce);
+  const result=await jsonpRequest({action:'login',username:challenge.username,nonce:challenge.nonce,proof});
+  if((syncMeta.pending||0)>0&&syncMeta.pendingOwner&&syncMeta.pendingOwner!==result.user.username){
+    try{await submitCloudForm({action:'logout',session:result.session})}catch{}
+    throw new Error(`此裝置仍有 ${syncMeta.pendingOwner} 的 ${syncMeta.pending} 筆資料尚未同步，請先用該帳號登入完成同步`);
+  }
+  if((syncMeta.pending||0)>0&&!syncMeta.pendingOwner)syncMeta.pendingOwner=result.user.username;
+  auth={session:result.session,user:result.user,expiresAt:result.expiresAt};persistAuth();applyAuthUI();return result;
+}
+function clearAuth(preservePending=false){
+  auth={session:'',user:null,expiresAt:''};
+  localStorage.removeItem(AUTH_KEY);
+  if(!preservePending||(syncMeta.pending||0)===0){
+    localStorage.removeItem(STORE_KEY);localStorage.removeItem(SYNC_META_KEY);
+    state=normalizeState(JSON.parse(JSON.stringify(DEFAULT_STATE)));
+    syncMeta={pending:0,lastSyncedAt:'',lastError:'',revision:0,pendingOwner:''};
+  }else{
+    persistSyncMeta();
+  }
+  document.body.classList.add('auth-locked');loginPassword.value='';loginError.textContent='';
+  const savedNotice=el('dailySaveStatus');if(savedNotice){savedNotice.style.display='none';savedNotice.textContent='';}
+  currentUserName.textContent='—';currentUserRole.textContent='—';
+}
+function roleLabel(role){return ROLE_LABELS[role]||role||'—'}
+function canManageData(){return ['admin','operator'].includes(currentUser().role)}
+function canDeleteDaily(){return ['admin','operator'].includes(currentUser().role)}
+function applyAuthUI(){
+  const logged=Boolean(auth.session&&auth.user);document.body.classList.toggle('auth-locked',!logged);if(!logged)return;
+  currentUserName.textContent=auth.user.displayName||auth.user.username;currentUserRole.textContent=roleLabel(auth.user.role);
+  const allowed=new Set(ROLE_TABS[auth.user.role]||[]);document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('permission-hidden',!allowed.has(b.dataset.tab)));
+  const active=document.querySelector('#nav button.active');if(!active||!allowed.has(active.dataset.tab)){const target=document.querySelector(`#nav button[data-tab="${ROLE_TABS[auth.user.role][0]}"]`);if(target)target.click();}
+  document.querySelectorAll('.admin-only').forEach(n=>n.classList.toggle('permission-hidden',auth.user.role!=='admin'));
+  document.querySelectorAll('.audit-visible').forEach(n=>n.classList.toggle('permission-hidden',!hasPermission('audit')));
+  applyWritePermissions();
+}
+function applyWritePermissions(){
+  const role=currentUser().role,canManage=['admin','operator'].includes(role),canDaily=['admin','operator','employee'].includes(role);
+  ['addDaily'].forEach(id=>{const n=el(id);if(n)n.classList.toggle('permission-hidden',!canDaily)});
+  ['addFixed','addDistribution','saveBankOpening','addAdjustment','uploadCloud'].forEach(id=>{const n=el(id);if(n)n.classList.toggle('permission-hidden',!canManage)});
+  ['saveStoreSettings','importData','clearData'].forEach(id=>{const n=el(id);if(n)n.classList.toggle('permission-hidden',role!=='admin')});
+  document.querySelectorAll('.fixed-template').forEach(n=>n.classList.toggle('permission-hidden',!canManage));
+  ['addFixed','addDistribution','saveBankOpening','addAdjustment'].forEach(id=>{const n=el(id);if(n&&n.closest('.card'))n.closest('.card').classList.toggle('permission-hidden',!canManage)});
+}
+async function submitOperation(action,fields={}){
+  const requestId=crypto.randomUUID();await submitCloudForm(Object.assign({action,session:auth.session,requestId},fields));
+  for(let i=0;i<12;i++){await new Promise(r=>setTimeout(r,i?500:300));try{const result=await jsonpRequest({action:'operationStatus',session:auth.session,requestId},10000);return result}catch(error){if(!String(error.message).includes('處理中'))throw error}}
+  throw new Error('操作確認逾時');
+}
+async function loadUsers(){if(!hasPermission('admin'))return;const result=await jsonpRequest({action:'listUsers',session:auth.session});renderUsers(result.users||[])}
+function renderUsers(users){
+  usersTable.innerHTML=`<tr><th>帳號</th><th>名稱</th><th>角色</th><th>狀態</th><th></th></tr>`+(users.length?users.map(u=>`<tr><td>${esc(u.username)}</td><td>${esc(u.displayName)}</td><td>${esc(roleLabel(u.role))}</td><td>${u.enabled?'啟用':'停用'}</td><td>${u.username===currentUser().username?'目前帳號':`<button class="btn secondary" onclick="toggleUserAccount('${esc(u.username)}',${!u.enabled})">${u.enabled?'停用':'啟用'}</button>`}</td></tr>`).join(''):`<tr><td colspan="5" class="notice">尚無使用者</td></tr>`);
+}
+window.toggleUserAccount=async(username,enabled)=>{if(!confirm(`確定要${enabled?'啟用':'停用'} ${username}？`))return;try{userActionStatus.textContent='處理中…';await submitOperation('toggleUser',{username,enabled:String(enabled)});userActionStatus.textContent='已完成';await loadUsers()}catch(e){userActionStatus.textContent='錯誤：'+e.message}};
+async function loadAudit(){if(!hasPermission('audit'))return;const result=await jsonpRequest({action:'audit',session:auth.session,limit:'100'});const logs=result.logs||[];auditTable.innerHTML=`<tr><th>時間</th><th>使用者</th><th>角色</th><th>動作</th><th>內容</th></tr>`+(logs.length?logs.map(x=>`<tr><td>${esc(String(x['時間']||'').replace('T',' ').slice(0,19))}</td><td>${esc(x['顯示名稱']||x.username)}</td><td>${esc(roleLabel(x.role))}</td><td>${esc(x['動作'])}</td><td>${esc(x['資料類型'])} ${esc(x['內容'])}</td></tr>`).join(''):`<tr><td colspan="5" class="notice">尚無操作紀錄</td></tr>`)}
+
 function cloudReady(){
-  return Boolean(CLOUD_CONFIG.scriptUrl && CLOUD_CONFIG.accessToken &&
-    !CLOUD_CONFIG.scriptUrl.includes('請貼上') && !CLOUD_CONFIG.accessToken.includes('請設定'));
+  return Boolean(CLOUD_CONFIG.scriptUrl && !CLOUD_CONFIG.scriptUrl.includes('請貼上') && auth.session);
 }
 
 function save(){
@@ -487,7 +616,7 @@ async function saveCloudState(){
   try{
     await submitCloudForm({
       action:'save',
-      token:CLOUD_CONFIG.accessToken,
+      session:auth.session,
       payload:JSON.stringify(state)
     });
     updateSyncUI('syncing','已送出，正在確認 Google Sheets 資料…');
@@ -536,6 +665,7 @@ function applyConfirmedCloudState(remote,sentRevision){
     state=normalizeState(remote||{});
     localStorage.setItem(STORE_KEY,JSON.stringify(state));
     syncMeta.pending=0;
+    syncMeta.pendingOwner='';
     renderAll();
   }
   syncMeta.lastSyncedAt=new Date().toISOString();syncMeta.lastError='';persistSyncMeta();
@@ -564,6 +694,7 @@ function loadCloudState(showAlert=true,options={}){
     delete window[callback];
     script.remove();
     if(response&&response.ok){
+      if(response.user){auth.user=response.user;persistAuth();applyAuthUI()}
       if(options.verifySnapshot){
         resolve(Object.assign({},response,{confirmed:cloudContainsSnapshot(normalizeState(response.state||{}),options.verifySnapshot)}));
         return;
@@ -574,18 +705,23 @@ function loadCloudState(showAlert=true,options={}){
         localStorage.setItem(STORE_KEY,JSON.stringify(state));
         renderAll();
       }
-      if(options.confirmation && (syncMeta.revision||0)===options.expectedRevision) syncMeta.pending=0;
+      if(options.confirmation && (syncMeta.revision||0)===options.expectedRevision){syncMeta.pending=0;syncMeta.pendingOwner='';}
       syncMeta.lastSyncedAt=new Date().toISOString();syncMeta.lastError='';persistSyncMeta();
       const status=syncMeta.pending>0?'pending':'synced';
       updateSyncUI(status,syncMeta.pending>0?`雲端已回應，仍有 ${syncMeta.pending} 筆新變更等待同步。`:`已同步 Google Sheets（${response.updatedAt||'剛剛'}）`);
       resolve(response);
     }else{
-      const message=response&&response.error?response.error:'未知錯誤';syncMeta.lastError=message;persistSyncMeta();updateSyncUI('error',`讀取失敗：${message}`,message);reject(new Error(message));
+      const message=response&&response.error?response.error:'未知錯誤';
+      if(message.includes('登入')||message.includes('帳號已停用')){
+        clearAuth(true);
+        loginError.textContent=(syncMeta.pending||0)>0?`登入已失效，但 ${syncMeta.pending} 筆待同步資料仍保留。請用 ${syncMeta.pendingOwner||'原'} 帳號重新登入。`:message;
+      }
+      syncMeta.lastError=message;persistSyncMeta();updateSyncUI('error',`讀取失敗：${message}`,message);reject(new Error(message));
     }
   };
   const url=new URL(CLOUD_CONFIG.scriptUrl);
   url.searchParams.set('action','load');
-  url.searchParams.set('token',CLOUD_CONFIG.accessToken);
+  url.searchParams.set('session',auth.session);
   url.searchParams.set('callback',callback);
   url.searchParams.set('_',Date.now());
   script.src=url.toString();
@@ -600,6 +736,8 @@ function loadCloudState(showAlert=true,options={}){
 const el=id=>document.getElementById(id);
 function finiteNumber(v){const n=typeof v==='string'?Number(v.replace(/,/g,'')):Number(v);return Number.isFinite(n)?n:0}
 function money(v){return new Intl.NumberFormat('zh-TW',{style:'currency',currency:'TWD',minimumFractionDigits:0,maximumFractionDigits:0}).format(finiteNumber(v))}
+const recentSubmission=new Map();
+function isRapidDuplicate(type,signature){const now=Date.now(),previous=recentSubmission.get(type);recentSubmission.set(type,{signature,time:now});return Boolean(previous&&previous.signature===signature&&now-previous.time<1500)}
 function today(){return new Date().toISOString().slice(0,10)}
 function ym(date){return date.slice(0,7)}
 function y(date){return date.slice(0,4)}
@@ -624,11 +762,12 @@ function fixedApplies(f, month){
   const e=f.end?new Date(f.end+'T23:59:59'):null;
   if(mEnd<s || (e && mStart>e)) return false;
   const months=(mStart.getFullYear()-s.getFullYear())*12+(mStart.getMonth()-s.getMonth());
-  if(f.cycle==='monthly') return months>=0;
-  if(f.cycle==='quarterly') return months>=0 && months%3===0;
-  if(f.cycle==='yearly') return months>=0 && months%12===0;
-  return false;
+  const cycleMatches=f.cycle==='monthly'?months>=0:f.cycle==='quarterly'?months>=0&&months%3===0:f.cycle==='yearly'?months>=0&&months%12===0:false;
+  if(!cycleMatches)return false;
+  const occurrence=fixedOccurrenceDate(f,month);
+  return occurrence>=f.start&&(!f.end||occurrence<=f.end);
 }
+function fixedOccurrenceDate(f,month){const [year,mon]=month.split('-').map(Number),lastDay=new Date(year,mon,0).getDate(),day=Math.min(Math.max(1,+f.day||1),lastDay);return `${month}-${String(day).padStart(2,'0')}`}
 function isOnOrAfterOpening(date){
   const openingDate=(state.storeSettings&&state.storeSettings.openingDate)||'2026-04-01';
   return date>=openingDate;
@@ -663,7 +802,7 @@ function bankReconciliation(asOf=today()){
   const income=daily.reduce((a,x)=>a+(+x.income||0),0);
   const variable=daily.reduce((a,x)=>a+(+x.expense||0),0);
   const fixed=monthsBetween(openingDate,asOf)
-    .reduce((sum,m)=>sum+state.fixed.filter(f=>fixedApplies(f,m)).reduce((a,f)=>a+(+f.amount||0),0),0);
+    .reduce((sum,m)=>sum+state.fixed.filter(f=>fixedApplies(f,m)&&fixedOccurrenceDate(f,m)>=openingDate&&fixedOccurrenceDate(f,m)<=asOf).reduce((a,f)=>a+(+f.amount||0),0),0);
   const distributions=state.distributions
     .filter(x=>x.date>=openingDate && x.date<=asOf)
     .reduce((a,x)=>a+(+x.amount||0),0);
@@ -677,6 +816,7 @@ function bankReconciliation(asOf=today()){
 function distributionTypeText(t){
   return t==='shareholder'?'股東分潤':t==='employee'?'員工分潤':'其他分潤';
 }
+function shareholderRate(){const value=Number(state.storeSettings&&state.storeSettings.shareholderRate);return Number.isFinite(value)?value:90}
 
 function uniqueText(values){return [...new Set(values.map(v=>(v||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh-Hant'))}
 function fillFilter(id,values,allLabel){
@@ -703,8 +843,8 @@ function renderDistributions(){
   const query=(el('distributionSearch')?.value||'').trim().toLowerCase(), recipient=el('distributionRecipientFilter')?.value||'';
   const filtered=[...state.distributions].filter(x=>(!recipient||x.recipient===recipient)&&(!query||[x.date,x.recipient,x.note,distributionTypeText(x.type)].some(v=>String(v||'').toLowerCase().includes(query)))).sort((a,b)=>b.date.localeCompare(a.date));
   const result=pageRows(filtered,'distributions'), rows=result.items;
-  el('distributionTable').innerHTML=`<tr><th>日期</th><th>類型</th><th>收款人／說明</th><th>金額</th><th>備註</th><th></th></tr>`+
-    (rows.length?rows.map(x=>`<tr><td>${x.date}</td><td>${distributionTypeText(x.type)}</td><td>${esc(x.recipient)}</td><td>${money(x.amount)}</td><td>${esc(x.note)}</td><td><button class="btn danger" onclick="delDistribution('${x.id}')">刪除</button></td></tr>`).join(''):`<tr><td colspan="6" class="notice">沒有符合條件的分潤紀錄</td></tr>`);
+  el('distributionTable').innerHTML=`<tr><th>日期</th><th>類型</th><th>收款人／說明</th><th>金額</th><th>建立者</th><th>備註</th><th></th></tr>`+
+    (rows.length?rows.map(x=>`<tr><td>${x.date}</td><td>${distributionTypeText(x.type)}</td><td>${esc(x.recipient)}</td><td>${money(x.amount)}</td><td>${esc(x.createdBy||'—')}</td><td>${esc(x.note)}</td><td>${canManageData()?`<button class="btn danger" onclick="delDistribution('${x.id}')">刪除</button>`:''}</td></tr>`).join(''):`<tr><td colspan="7" class="notice">沒有符合條件的分潤紀錄</td></tr>`);
   el('distributionListSummary').textContent=`目前篩選合計：${money(filtered.reduce((sum,x)=>sum+(+x.amount||0),0))}`;
   renderPager('distributionPager','distributions',result);
 }
@@ -738,8 +878,8 @@ function renderBank(){
   const aq=(el('adjustmentSearch')?.value||'').trim().toLowerCase();
   const filteredAdjustments=[...state.adjustments].filter(x=>!aq||[x.date,x.category,x.note,x.amount].some(v=>String(v||'').toLowerCase().includes(aq))).sort((a,b)=>b.date.localeCompare(a.date));
   const adjustmentResult=pageRows(filteredAdjustments,'adjustments'), rows=adjustmentResult.items;
-  el('adjustmentTable').innerHTML=`<tr><th>日期</th><th>項目</th><th>金額</th><th>備註</th><th></th></tr>`+
-    (rows.length?rows.map(x=>`<tr><td>${x.date}</td><td>${esc(x.category)}</td><td class="${(+x.amount||0)>=0?'positive':'negative'}">${money(x.amount)}</td><td>${esc(x.note)}</td><td><button class="btn danger" onclick="delAdjustment('${x.id}')">刪除</button></td></tr>`).join(''):`<tr><td colspan="5" class="notice">沒有符合條件的銀行調整</td></tr>`);
+  el('adjustmentTable').innerHTML=`<tr><th>日期</th><th>項目</th><th>金額</th><th>建立者</th><th>備註</th><th></th></tr>`+
+    (rows.length?rows.map(x=>`<tr><td>${x.date}</td><td>${esc(x.category)}</td><td class="${(+x.amount||0)>=0?'positive':'negative'}">${money(x.amount)}</td><td>${esc(x.createdBy||'—')}</td><td>${esc(x.note)}</td><td>${canManageData()?`<button class="btn danger" onclick="delAdjustment('${x.id}')">刪除</button>`:''}</td></tr>`).join(''):`<tr><td colspan="6" class="notice">沒有符合條件的銀行調整</td></tr>`);
   renderPager('adjustmentPager','adjustments',adjustmentResult);
   const r=bankReconciliation();
   el('bankReconciliationTable').innerHTML=`
@@ -775,8 +915,8 @@ function renderDaily(){
   const query=(el('dailySearch')?.value||'').trim().toLowerCase(), category=el('dailyCategoryFilter')?.value||'';
   const filtered=[...state.daily].filter(x=>(!category||x.category===category)&&(!query||[x.date,x.category,x.note,x.income,x.expense].some(v=>String(v||'').toLowerCase().includes(query)))).sort((a,b)=>b.date.localeCompare(a.date));
   const result=pageRows(filtered,'daily'), rows=result.items;
-  el('dailyTable').innerHTML=`<tr><th>日期</th><th>收入</th><th>支出</th><th>項目</th><th>備註</th><th></th></tr>`+
-    (rows.length?rows.map(x=>`<tr><td>${x.date}</td><td>${money(x.income)}</td><td>${money(x.expense)}</td><td>${esc(x.category)}</td><td>${esc(x.note)}</td><td><button class="btn danger" onclick="delDaily('${x.id}')">刪除</button></td></tr>`).join(''):`<tr><td colspan="6" class="notice">目前尚無每日記帳紀錄</td></tr>`);
+  el('dailyTable').innerHTML=`<tr><th>日期</th><th>收入</th><th>支出</th><th>項目</th><th>建立者</th><th>備註</th><th></th></tr>`+
+    (rows.length?rows.map(x=>`<tr><td>${x.date}</td><td>${money(x.income)}</td><td>${money(x.expense)}</td><td>${esc(x.category)}</td><td>${esc(x.createdBy||'—')}</td><td>${esc(x.note)}</td><td>${canDeleteDaily()?`<button class="btn danger" onclick="delDaily('${x.id}')">刪除</button>`:''}</td></tr>`).join(''):`<tr><td colspan="7" class="notice">目前尚無每日記帳紀錄</td></tr>`);
   el('dailyListSummary').textContent=`篩選結果：${filtered.length} 筆｜收入 ${money(filtered.reduce((s,x)=>s+(+x.income||0),0))}｜支出 ${money(filtered.reduce((s,x)=>s+(+x.expense||0),0))}`;
   renderPager('dailyPager','daily',result);
 }
@@ -784,7 +924,7 @@ function renderFixed(){
   const box=el('fixedCards');
   if(!box) return;
   const rows=[...state.fixed].sort((a,b)=>(a.name||'').localeCompare(b.name||'','zh-Hant'));
-  box.innerHTML=rows.length?rows.map(x=>`<div class="fixed-item"><div class="fixed-item-head"><div><div class="fixed-item-title">${esc(x.name)}</div><div class="value" style="font-size:22px;margin-top:6px">${money(x.amount)}</div></div><button class="btn danger" onclick="delFixed('${x.id}')">刪除</button></div><div class="fixed-item-meta">週期：${cycleText(x.cycle)}<br>開始：${x.start}｜結束：${x.end||'持續有效'}<br>入帳日：每期 ${x.day||1} 日${x.note?`<br>備註：${esc(x.note)}`:''}</div></div>`).join(''):`<div class="notice">目前尚未建立固定支出規則。</div>`;
+  box.innerHTML=rows.length?rows.map(x=>`<div class="fixed-item"><div class="fixed-item-head"><div><div class="fixed-item-title">${esc(x.name)}</div><div class="value" style="font-size:22px;margin-top:6px">${money(x.amount)}</div></div>${canManageData()?`<button class="btn danger" onclick="delFixed('${x.id}')">刪除</button>`:''}</div><div class="fixed-item-meta">週期：${cycleText(x.cycle)}<br>開始：${x.start}｜結束：${x.end||'持續有效'}<br>入帳日：每期 ${x.day||1} 日<br>建立者：${esc(x.createdBy||'—')}${x.note?`<br>備註：${esc(x.note)}`:''}</div></div>`).join(''):`<div class="notice">目前尚未建立固定支出規則。</div>`;
 }
 function cycleText(c){return c==='monthly'?'每月':c==='quarterly'?'每季':'每年'}
 let reportCache={monthly:[],quarterly:[],yearly:[]};
@@ -818,13 +958,13 @@ function renderReports(){
     "固定支出":r.fixed,
     "總支出":r.total,
     "淨利":r.profit,
-    "股東總分潤":Math.max(r.profit,0)*(((state.storeSettings&&state.storeSettings.shareholderRate)||90)/100),
+    "股東總分潤":Math.max(r.profit,0)*(shareholderRate()/100),
     "已發放股東分潤":state.distributions.filter(x=>x.type==="shareholder" && `${x.date.slice(0,4)}-Q${Math.floor((+x.date.slice(5,7)-1)/3)+1}`===k).reduce((a,x)=>a+(+x.amount||0),0)
   }));
 
-  el('quarterlyTable').innerHTML=`<tr><th>季度</th><th>營收</th><th>變動支出</th><th>固定支出</th><th>總支出</th><th>淨利</th><th>股東總分潤（${((state.storeSettings&&state.storeSettings.shareholderRate)||90)}%）</th><th>已發放股東分潤</th></tr>`+
+  el('quarterlyTable').innerHTML=`<tr><th>季度</th><th>營收</th><th>變動支出</th><th>固定支出</th><th>總支出</th><th>淨利</th><th>股東總分潤（${shareholderRate()}%）</th><th>已發放股東分潤</th></tr>`+
     Object.entries(qmap).map(([k,r])=>{
-      const share=Math.max(r.profit,0)*(((state.storeSettings&&state.storeSettings.shareholderRate)||90)/100);
+      const share=Math.max(r.profit,0)*(shareholderRate()/100);
       const paid=state.distributions.filter(x=>x.type==="shareholder" && `${x.date.slice(0,4)}-Q${Math.floor((+x.date.slice(5,7)-1)/3)+1}`===k).reduce((a,x)=>a+(+x.amount||0),0); return `<tr><td>${k}</td><td>${money(r.income)}</td><td>${money(r.variable)}</td><td>${money(r.fixed)}</td><td>${money(r.total)}</td><td class="${r.profit>=0?'positive':'negative'}">${money(r.profit)}</td><td>${money(share)}</td><td>${money(paid)}</td></tr>`;
     }).join('');
 
@@ -842,14 +982,15 @@ function renderReports(){
     "固定支出":r.fixed,
     "總支出":r.total,
     "淨利":r.profit,
-    "股東總分潤":Math.max(r.profit,0)*(((state.storeSettings&&state.storeSettings.shareholderRate)||90)/100),
+    "股東總分潤":Math.max(r.profit,0)*(shareholderRate()/100),
     "已發放股東分潤":state.distributions.filter(x=>x.type==="shareholder" && x.date.slice(0,4)===k).reduce((a,x)=>a+(+x.amount||0),0)
   }));
 
-  el('yearlyTable').innerHTML=`<tr><th>年度</th><th>營收</th><th>變動支出</th><th>固定支出</th><th>總支出</th><th>淨利</th><th>股東總分潤（${((state.storeSettings&&state.storeSettings.shareholderRate)||90)}%）</th><th>已發放股東分潤</th></tr>`+
+  el('yearlyTable').innerHTML=`<tr><th>年度</th><th>營收</th><th>變動支出</th><th>固定支出</th><th>總支出</th><th>淨利</th><th>股東總分潤（${shareholderRate()}%）</th><th>已發放股東分潤</th></tr>`+
     Object.entries(ymap).map(([k,r])=>{
-      const share=Math.max(r.profit,0)*(((state.storeSettings&&state.storeSettings.shareholderRate)||90)/100);
-      return `<tr><td>${k}</td><td>${money(r.income)}</td><td>${money(r.variable)}</td><td>${money(r.fixed)}</td><td>${money(r.total)}</td><td class="${r.profit>=0?'positive':'negative'}">${money(r.profit)}</td><td>${money(share)}</td></tr>`;
+      const share=Math.max(r.profit,0)*(shareholderRate()/100);
+      const paid=state.distributions.filter(x=>x.type==='shareholder'&&x.date.slice(0,4)===k).reduce((a,x)=>a+(+x.amount||0),0);
+      return `<tr><td>${k}</td><td>${money(r.income)}</td><td>${money(r.variable)}</td><td>${money(r.fixed)}</td><td>${money(r.total)}</td><td class="${r.profit>=0?'positive':'negative'}">${money(r.profit)}</td><td>${money(share)}</td><td>${money(paid)}</td></tr>`;
     }).join('');
 }
 
@@ -927,6 +1068,7 @@ function renderStoreSettings(){
 
 function renderAll(){const jobs=[renderDashboard,renderDaily,renderFixed,renderDistributions,renderBank,renderReports,renderStoreSettings]; jobs.forEach(fn=>{try{fn()}catch(e){console.error(fn.name,e)}})}
 function softDelete(collection,id){
+  if(!canManageData()){alert('你的帳號沒有刪除權限');return}
   state[collection]=state[collection].filter(x=>x.id!==id);
   if(!state.deleted[collection].includes(id)) state.deleted[collection].push(id);
   save();
@@ -952,11 +1094,14 @@ bindListControls();
 el('dailyDate').value=today(); el('fixedStart').value=today(); el('distributionDate').value=today(); el('adjustmentDate').value=today(); el('bankOpeningDate').value=state.bankOpeningDate||today();
 
 el('addDaily').onclick=()=>{
-  const date=el('dailyDate').value, income=+el('dailyIncome').value||0, expense=+el('dailyExpense').value||0;
+  const date=el('dailyDate').value, income=Number(el('dailyIncome').value||0), expense=Number(el('dailyExpense').value||0);
   if(!date){alert('請選擇日期');return}
+  if(!Number.isFinite(income)||!Number.isFinite(expense)||income<0||expense<0){alert('收入與支出請輸入 0 以上的正確金額');return}
   if(income===0 && expense===0){alert('收入或支出至少輸入一項');return}
   if(expense>0 && !el('dailyCategory').value){alert('有支出金額時，請選擇支出項目');return}
-  state.daily.push({id:(crypto.randomUUID?crypto.randomUUID():String(Date.now())),date,income,expense,category:el('dailyCategory').value.trim(),note:el('dailyNote').value.trim()});
+  const signature=[date,income,expense,el('dailyCategory').value.trim(),el('dailyNote').value.trim()].join('|');
+  if(isRapidDuplicate('daily',signature)){alert('偵測到短時間內重複送出相同記帳，本次未重複新增');return}
+  state.daily.push({id:(crypto.randomUUID?crypto.randomUUID():String(Date.now())),date,income,expense,category:el('dailyCategory').value.trim(),note:el('dailyNote').value.trim(),createdBy:currentUser().username,createdAt:new Date().toISOString()});
   el('dailyIncome').value='';el('dailyExpense').value='';el('dailyCategory').value='';el('dailyNote').value='';
   save();
   const s=el('dailySaveStatus'); s.style.display='block'; s.textContent=`已儲存 ${date}：收入 ${money(income)}，支出 ${money(expense)}。下方明細已更新。`;
@@ -970,21 +1115,26 @@ document.querySelectorAll('.fixed-template').forEach(btn=>btn.onclick=()=>{
 addFixed.onclick=()=>{
   const name=fixedName.value.trim();
   if(!name || !(+fixedAmount.value>0) || !fixedStart.value){alert('請填寫名稱、金額與開始日期');return}
+  const day=Number(fixedDay.value);
+  if(!Number.isInteger(day)||day<1||day>31){alert('每月入帳日請輸入 1 到 31');return}
+  if(fixedEnd.value&&fixedEnd.value<fixedStart.value){alert('結束日期不能早於開始日期');return}
   const duplicate=state.fixed.find(x=>(x.name||'').trim().toLowerCase()===name.toLowerCase() && x.cycle===fixedCycle.value && !x.end);
   if(duplicate){
     alert(`已存在「${duplicate.name}／${cycleText(duplicate.cycle)}」的有效固定支出規則。請刪除或調整原規則，不要重複建立。`);
     return;
   }
-  state.fixed.push({id:(crypto.randomUUID?crypto.randomUUID():String(Date.now())),name,amount:+fixedAmount.value,cycle:fixedCycle.value,start:fixedStart.value,end:fixedEnd.value,day:+fixedDay.value||1,note:fixedNote.value.trim()});
+  state.fixed.push({id:(crypto.randomUUID?crypto.randomUUID():String(Date.now())),name,amount:+fixedAmount.value,cycle:fixedCycle.value,start:fixedStart.value,end:fixedEnd.value,day,note:fixedNote.value.trim(),createdBy:currentUser().username,createdAt:new Date().toISOString()});
   fixedName.value='';fixedAmount.value='';fixedEnd.value='';fixedNote.value='';save();
 }
 
 addDistribution.onclick=()=>{
-  const date=distributionDate.value, amount=+distributionAmount.value||0;
+  const date=distributionDate.value, amount=Number(distributionAmount.value||0),recipient=distributionRecipient.value.trim();
   if(!date || amount<=0){alert('請填寫日期與正確的分潤金額');return}
+  if(!recipient){alert('請填寫收款人或說明，才能正確統計已領金額');return}
+  if(isRapidDuplicate('distribution',[date,amount,distributionType.value,recipient,distributionNote.value.trim()].join('|'))){alert('偵測到短時間內重複送出相同分潤，本次未重複新增');return}
   state.distributions.push({
     id:crypto.randomUUID(),date,amount,type:distributionType.value,
-    recipient:distributionRecipient.value.trim(),note:distributionNote.value.trim()
+    recipient,note:distributionNote.value.trim(),createdBy:currentUser().username,createdAt:new Date().toISOString()
   });
   distributionAmount.value='';distributionRecipient.value='';distributionNote.value='';save();
 }
@@ -998,16 +1148,19 @@ saveBankOpening.onclick=()=>{
   if(issues.length && !confirm(`這個期初日期之前已有：${issues.join('、')}。較早資料不會納入推算，仍要儲存嗎？`)) return;
   state.bankOpeningDate=bankOpeningDate.value;
   state.bankOpeningBalance=amount;
+  state.bankUpdatedAt=new Date().toISOString();
   save();
   alert('期初銀行設定已儲存');
 }
 
 addAdjustment.onclick=()=>{
-  const date=adjustmentDate.value, amount=Number(adjustmentAmount.value);
+  const date=adjustmentDate.value, amount=Number(adjustmentAmount.value),category=adjustmentCategory.value.trim();
   if(!date || !Number.isFinite(amount) || amount===0){alert('請填寫日期與非零調整金額');return}
+  if(!category){alert('請填寫銀行調整項目');return}
+  if(isRapidDuplicate('adjustment',[date,amount,category,adjustmentNote.value.trim()].join('|'))){alert('偵測到短時間內重複送出相同銀行調整，本次未重複新增');return}
   state.adjustments.push({
     id:crypto.randomUUID(),date,amount,
-    category:adjustmentCategory.value.trim(),note:adjustmentNote.value.trim()
+    category,note:adjustmentNote.value.trim(),createdBy:currentUser().username,createdAt:new Date().toISOString()
   });
   adjustmentAmount.value='';adjustmentCategory.value='';adjustmentNote.value='';save();
 }
@@ -1041,12 +1194,50 @@ reserveRateInput.addEventListener('input',()=>{
   shareholderRateDisplay.value=Number.isFinite(reserve)?`${Math.max(0,100-reserve)}%`:'—';
 });
 
+loginButton.onclick=async()=>{
+  const username=loginUsername.value.trim(),password=loginPassword.value;
+  if(!username||!password){loginError.textContent='請輸入帳號與密碼';return}
+  loginButton.disabled=true;loginButton.textContent='登入中…';loginError.textContent='';
+  try{await login(username,password);loginPassword.value='';updateSyncUI('syncing','登入成功，正在讀取雲端資料…');await loadCloudState(false);if(syncMeta.pending>0)await saveCloudState();if(hasPermission('admin'))loadUsers().catch(()=>{});if(hasPermission('audit'))loadAudit().catch(()=>{});}
+  catch(e){clearAuth(true);loginError.textContent=e.message||'登入失敗'}finally{loginButton.disabled=false;loginButton.textContent='登入'}
+};
+loginPassword.addEventListener('keydown',e=>{if(e.key==='Enter')loginButton.click()});
+logoutButton.onclick=async()=>{
+  if(syncMeta.pending>0&&!confirm(`仍有 ${syncMeta.pending} 筆變更尚未確認同步，仍要登出嗎？`))return;
+  // 登出後工作階段會立即失效，因此不再以已失效的工作階段輪詢結果。
+  try{if(auth.session)await submitCloudForm({action:'logout',session:auth.session})}catch{}finally{clearAuth()}
+};
+changePasswordButton.onclick=()=>{passwordActionStatus.textContent='';currentPasswordInput.value='';newOwnPasswordInput.value='';confirmOwnPasswordInput.value='';passwordDialog.classList.add('open');currentPasswordInput.focus()};
+cancelPasswordButton.onclick=()=>passwordDialog.classList.remove('open');
+savePasswordButton.onclick=async()=>{
+  const currentPassword=currentPasswordInput.value,newPassword=newOwnPasswordInput.value,confirmPassword=confirmOwnPasswordInput.value;
+  if(newPassword.length<8){passwordActionStatus.textContent='新密碼至少 8 碼';return}
+  if(newPassword!==confirmPassword){passwordActionStatus.textContent='兩次輸入的新密碼不一致';return}
+  savePasswordButton.disabled=true;passwordActionStatus.textContent='正在修改…';
+  try{
+    const challenge=await jsonpRequest({action:'challenge',username:currentUser().username});
+    const currentHash=await sha256(currentPassword+challenge.salt),newSalt=crypto.randomUUID().replaceAll('-',''),newHash=await sha256(newPassword+newSalt);
+    await submitOperation('changePassword',{currentHash,newSalt,newHash});
+    passwordActionStatus.textContent='修改成功，請用新密碼重新登入';
+    setTimeout(()=>{passwordDialog.classList.remove('open');clearAuth(true)},900);
+  }catch(e){passwordActionStatus.textContent='錯誤：'+e.message}
+  finally{savePasswordButton.disabled=false}
+};
+createUserButton.onclick=async()=>{
+  const username=newUsername.value.trim(),displayName=newDisplayName.value.trim(),role=newUserRole.value,password=newUserPassword.value;
+  if(!username||!displayName||password.length<8){userActionStatus.textContent='請填完整資料，密碼至少8碼';return}
+  try{userActionStatus.textContent='正在新增…';await submitOperation('createUser',{username,displayName,role,password});newUsername.value='';newDisplayName.value='';newUserPassword.value='';userActionStatus.textContent='帳號已新增';await loadUsers()}
+  catch(e){userActionStatus.textContent='錯誤：'+e.message}
+};
+refreshUsersButton.onclick=()=>loadUsers().catch(e=>userActionStatus.textContent='錯誤：'+e.message);
+refreshAuditButton.onclick=()=>loadAudit().catch(e=>alert(e.message));
+
 
 el('reloadCloud').onclick=()=>loadCloudState(true).catch(()=>{});
 el('uploadCloud').onclick=()=>{
   if(!cloudReady()){alert('請先設定 config.js');return}
   if(syncMeta.pending===0){
-    syncMeta.pending=1;syncMeta.revision=(syncMeta.revision||0)+1;persistSyncMeta();
+    syncMeta.pending=1;syncMeta.revision=(syncMeta.revision||0)+1;syncMeta.pendingOwner=currentUser().username;persistSyncMeta();
   }
   saveCloudState();
 };
@@ -1057,7 +1248,7 @@ syncPill.onclick=()=>{
 };
 syncClose.onclick=()=>{syncPanel.classList.remove('open');syncPill.setAttribute('aria-expanded','false')};
 syncRetry.onclick=()=>{
-  if(syncMeta.pending===0){syncMeta.pending=1;syncMeta.revision=(syncMeta.revision||0)+1;persistSyncMeta()}
+  if(syncMeta.pending===0){syncMeta.pending=1;syncMeta.revision=(syncMeta.revision||0)+1;syncMeta.pendingOwner=currentUser().username;persistSyncMeta()}
   saveCloudState();
 };
 document.addEventListener('click',event=>{
@@ -1075,20 +1266,32 @@ exportData.onclick=()=>{
 }
 importData.onchange=async e=>{
   const f=e.target.files[0]; if(!f)return;
-  try{state=JSON.parse(await f.text());save();alert('匯入完成')}
+  try{
+    state=normalizeState(JSON.parse(await f.text()));
+    state.settingsUpdatedAt=new Date().toISOString();
+    state.bankUpdatedAt=new Date().toISOString();
+    save();alert('匯入完成');
+  }
   catch{alert('檔案格式錯誤')}
 }
-clearData.onclick=()=>{if(confirm('確定清除全部資料？此動作無法復原。')){const deleted={};['daily','fixed','distributions','adjustments'].forEach(k=>deleted[k]=state[k].map(x=>x.id));state={daily:[],fixed:[],bankOpeningBalance:0,bankOpeningDate:today(),distributions:[],adjustments:[],deleted,storeSettings:{storeName:'室後菸',openingDate:'2026-04-01',shareholderRate:90,reserveRate:10,businessHours:'21:00–03:00'}};save()}}
+clearData.onclick=()=>{if(confirm('確定清除全部資料？此動作無法復原。')){const deleted={};['daily','fixed','distributions','adjustments'].forEach(k=>deleted[k]=state[k].map(x=>x.id));const now=new Date().toISOString();state=normalizeState({daily:[],fixed:[],bankOpeningBalance:0,bankOpeningDate:today(),bankUpdatedAt:now,distributions:[],adjustments:[],deleted,settingsUpdatedAt:now,storeSettings:{storeName:'室後菸',openingDate:'2026-04-01',shareholderRate:90,reserveRate:10,businessHours:'21:00–03:00'}});save()}}
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
-renderAll();
-if(!navigator.onLine){
+renderAll();applyAuthUI();
+if(!auth.session||!auth.user){
+  updateSyncUI('pending','請先登入');
+}else if(!navigator.onLine){
   updateSyncUI('pending',`目前離線，${syncMeta.pending||0} 筆變更已保留在本機。`);
 }else if(syncMeta.pending>0){
-  updateSyncUI('pending',`發現 ${syncMeta.pending} 筆未同步變更，準備上傳。`);
-  setTimeout(()=>saveCloudState(),300);
+  if(syncMeta.pendingOwner&&syncMeta.pendingOwner!==currentUser().username){
+    const owner=syncMeta.pendingOwner;clearAuth(true);loginError.textContent=`此裝置仍有 ${owner} 的 ${syncMeta.pending} 筆資料尚未同步，請先用該帳號登入`;
+  }else{
+    if(!syncMeta.pendingOwner){syncMeta.pendingOwner=currentUser().username;persistSyncMeta()}
+    updateSyncUI('pending',`發現 ${syncMeta.pending} 筆未同步變更，準備上傳。`);
+    setTimeout(()=>saveCloudState(),300);
+  }
 }else{
   updateSyncUI('syncing','正在取得 Google Sheets 最新資料…手機首次連線請稍候。');
-  setTimeout(()=>loadCloudState(false).catch(()=>{}),200);
+  setTimeout(()=>loadCloudState(false).then(()=>{if(hasPermission('admin'))loadUsers().catch(()=>{});if(hasPermission('audit'))loadAudit().catch(()=>{})}).catch(()=>{}),200);
 }
 </script>
 </body>
