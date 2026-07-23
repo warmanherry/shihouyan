@@ -353,7 +353,7 @@
 
   <div class="card admin-only" style="margin-top:12px" id="userManagementCard">
     <h2>使用者與角色</h2>
-    <p class="notice">只有系統管理員可以新增或停用帳號。密碼至少8碼；正式V2.0會再改成Supabase帳號系統。</p>
+    <p class="notice">只有系統管理員可以新增、停用帳號或調整角色。角色變更後，該使用者需重新登入。密碼至少8碼；正式V2.0會再改成Supabase帳號系統。</p>
     <div class="form-grid">
       <div><label>登入帳號</label><input id="newUsername" autocapitalize="none" placeholder="例如 partner-a"></div>
       <div><label>顯示名稱</label><input id="newDisplayName" placeholder="例如 股東 A"></div>
@@ -553,9 +553,21 @@ async function submitOperation(action,fields={}){
 }
 async function loadUsers(){if(!hasPermission('admin'))return;const result=await jsonpRequest({action:'listUsers',session:auth.session});renderUsers(result.users||[])}
 function renderUsers(users){
-  usersTable.innerHTML=`<tr><th>帳號</th><th>名稱</th><th>角色</th><th>狀態</th><th></th></tr>`+(users.length?users.map(u=>`<tr><td>${esc(u.username)}</td><td>${esc(u.displayName)}</td><td>${esc(roleLabel(u.role))}</td><td>${u.enabled?'啟用':'停用'}</td><td>${u.username===currentUser().username?'目前帳號':`<button class="btn secondary" onclick="toggleUserAccount('${esc(u.username)}',${!u.enabled})">${u.enabled?'停用':'啟用'}</button>`}</td></tr>`).join(''):`<tr><td colspan="5" class="notice">尚無使用者</td></tr>`);
+  const roleOptions=role=>Object.entries(ROLE_LABELS).map(([value,label])=>`<option value="${value}" ${value===role?'selected':''}>${label}</option>`).join('');
+  usersTable.innerHTML=`<tr><th>帳號</th><th>名稱</th><th>角色</th><th>狀態</th><th>操作</th></tr>`+(users.length?users.map(u=>{
+    const isCurrent=u.username===currentUser().username;
+    const roleControl=isCurrent?`${esc(roleLabel(u.role))}<br><small>目前登入帳號不可改</small>`:`<div class="user-role-editor"><select id="role-${esc(u.username)}">${roleOptions(u.role)}</select><button class="btn secondary" onclick="changeUserRole('${esc(u.username)}')">儲存角色</button></div>`;
+    const statusControl=isCurrent?'目前帳號':`<button class="btn secondary" onclick="toggleUserAccount('${esc(u.username)}',${!u.enabled})">${u.enabled?'停用':'啟用'}</button>`;
+    return `<tr><td>${esc(u.username)}</td><td>${esc(u.displayName)}</td><td>${roleControl}</td><td>${u.enabled?'啟用':'停用'}</td><td>${statusControl}</td></tr>`;
+  }).join(''):`<tr><td colspan="5" class="notice">尚無使用者</td></tr>`);
 }
 window.toggleUserAccount=async(username,enabled)=>{if(!confirm(`確定要${enabled?'啟用':'停用'} ${username}？`))return;try{userActionStatus.textContent='處理中…';await submitOperation('toggleUser',{username,enabled:String(enabled)});userActionStatus.textContent='已完成';await loadUsers()}catch(e){userActionStatus.textContent='錯誤：'+e.message}};
+window.changeUserRole=async username=>{
+  const node=document.getElementById(`role-${username}`),role=node&&node.value;
+  if(!role||!confirm(`確定將 ${username} 的角色改為「${roleLabel(role)}」？\n變更後該使用者必須重新登入。`))return;
+  try{userActionStatus.textContent='正在更新角色…';await submitOperation('updateUserRole',{username,role});userActionStatus.textContent='角色已更新，該使用者需重新登入';await loadUsers();await loadAudit()}
+  catch(e){userActionStatus.textContent='錯誤：'+e.message}
+};
 async function loadAudit(){if(!hasPermission('audit'))return;const result=await jsonpRequest({action:'audit',session:auth.session,limit:'100'});const logs=result.logs||[];auditTable.innerHTML=`<tr><th>時間</th><th>使用者</th><th>角色</th><th>動作</th><th>內容</th></tr>`+(logs.length?logs.map(x=>`<tr><td>${esc(String(x['時間']||'').replace('T',' ').slice(0,19))}</td><td>${esc(x['顯示名稱']||x.username)}</td><td>${esc(roleLabel(x.role))}</td><td>${esc(x['動作'])}</td><td>${esc(x['資料類型'])} ${esc(x['內容'])}</td></tr>`).join(''):`<tr><td colspan="5" class="notice">尚無操作紀錄</td></tr>`)}
 
 function cloudReady(){
